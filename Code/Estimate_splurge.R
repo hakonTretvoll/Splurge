@@ -86,7 +86,7 @@ implied_cov_splurge <-function(params, taste, T) {
   cov_om_th = cov_omega_theta(omega, theta)
   cov_om_th_m2 = cov_om_th[1]
   cov_om_th_m1 = cov_om_th[2]
-  var_om_th    = cov_om_th[3]
+  cov_om_th    = cov_om_th[3]
   cov_om_th_1  = cov_om_th[4]
   cov_om_th_2  = cov_om_th[5]
 
@@ -110,7 +110,7 @@ implied_cov_splurge <-function(params, taste, T) {
   #/* This is the covariance of consumption */
   for (j in 1:T){
     cov_c[j,j] <- 2.0/3.0*phi^2*var_perm + var_tran*(  psi_tilde^2       *var_omega 
-                                                     + 2.0*psi*psi_tilde *var_om_th 
+                                                     + 2.0*psi*psi_tilde *cov_om_th 
                                                      + psi^2             *var_theta) + varcsi
   }
   for (j in 2:T){
@@ -125,7 +125,7 @@ implied_cov_splurge <-function(params, taste, T) {
       cov_c[j-M,j]<- var_tran*(   (  psi^2         *cov_theta_2  
                                    + psi*psi_tilde *cov_om_th_2) *exp(-(M-2)*theta)
                                 + (  psi*psi_tilde *cov_om_th_m2 
-                                   + psi_tilde     *cov_omega_2) *exp(-(M-2)*omega) )
+                                   + psi_tilde^2   *cov_omega_2) *exp(-(M-2)*omega) )
       cov_c[j,j-M] <- cov_c[j-M,j]
     }
   }
@@ -141,7 +141,7 @@ implied_cov_splurge <-function(params, taste, T) {
   #/* This is the covariance of income and consumption */
   for (j in 1:T){
     cov_y_c[j,j] = 2.0/3.0*phi*var_perm + var_tran * (  psi_tilde *var_omega 
-                                                      + psi       *var_om_th )
+                                                      + psi       *cov_om_th )
   }
   for (j in 2:T){
     cov_y_c[j-1,j] <- 1.0/6.0*phi*var_perm
@@ -156,7 +156,7 @@ implied_cov_splurge <-function(params, taste, T) {
       cov_y_c[j-M,j] <- var_tran * (  psi_tilde *cov_omega_2
                                     + psi       *cov_om_th_m2 ) *exp(-(M-2)*omega)
       cov_y_c[j,j-M] <- var_tran * (  psi_tilde *cov_omega_2
-                                      + psi     *cov_om_th_2  ) *exp(-(M-2)*theta)
+                                    + psi       *cov_om_th_2  ) *exp(-(M-2)*theta)
     }
   }
   #/* Final matrix */
