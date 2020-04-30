@@ -30,7 +30,7 @@ fixed_index = c(FALSE,      # var_perm
                 FALSE,      # phi
                 TRUE,      # phi_tilde
                 FALSE,      # psi
-                TRUE,      # psi_tilde
+                FALSE,      # psi_tilde
                 FALSE,      # omega
                 FALSE,      # theta
                 TRUE,      # var_c_error
@@ -48,8 +48,8 @@ BPP_output      = splurge_parameter_step_by_step(c_vector  , Omega, T, init_para
 ###############################################################################
 # Function to estimate parameters for each category for which we have moments
 estimation_splurge_by_category<- function(moments_BPP_dir,moments_stub,category_set, T=12, init_params,fixed_index) {
-  category_params = array(0, dim=c(length(category_set),8))
-  category_se = array(0, dim=c(length(category_set),8))
+  category_params = array(0, dim=c(length(category_set),9))
+  category_se = array(0, dim=c(length(category_set),9))
   for (i in 1:length(category_set)){
     this_category = as.character(category_set[i])
     this_c_vector = as.vector(t(read.csv(file=paste(moments_BPP_dir,"/",moments_stub,i,"c_vector.txt", sep=""), header=FALSE, sep=",")))
@@ -63,6 +63,7 @@ estimation_splurge_by_category<- function(moments_BPP_dir,moments_stub,category_
     category_params[i,6] = this_output$psi_tilde
     category_params[i,7] = this_output$omega
     category_params[i,8] = this_output$theta
+    category_params[i,9] = this_output$bonus
     category_se[i,1]     = this_output$var_perm_se
     category_se[i,2]     = this_output$var_tran_se
     category_se[i,3]     = this_output$phi_se
@@ -71,6 +72,7 @@ estimation_splurge_by_category<- function(moments_BPP_dir,moments_stub,category_
     category_se[i,6]    = this_output$psi_tilde_se
     category_se[i,7]   = this_output$omega_se
     category_se[i,8]    = this_output$theta_se
+    category_se[i,9]    = this_output$bonus_se
   }
   output = list("category_params"=category_params,"category_se"=category_se)
   return (output)

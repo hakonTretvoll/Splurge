@@ -142,23 +142,34 @@ implied_cov_splurge <-function(params, T) {
   
   #/* This is the covariance of income and consumption */
   for (j in 1:T){
-    cov_y_c[j,j] = (2.0/3.0*phi)*var_perm + var_tran * (  psi_tilde *var_omega 
-                                                      + psi       *cov_om_th_0 )
+    cov_y_c[j,j] = (2.0/3.0*phi)*var_perm + 
+                                (1-bonus)*var_tran * (  psi_tilde *var_omega 
+                                                      + psi       *cov_om_th_0 ) + 
+                                    bonus*var_tran * ( psi_tilde  *2.0
+                                                      + psi       *(2.0/(1-exp(-theta)) - (3.0-exp(-theta))/theta))
   }
   for (j in 2:T){
     cov_y_c[j-1,j] <- (1.0/6.0*phi - 0.5*phi_tilde)*var_perm +
-                         var_tran * (  psi_tilde *cov_omega_1
-                                      + psi       *cov_om_th_m1 )
+                             (1-bonus)*var_tran * (  psi_tilde *cov_omega_1
+                                                   + psi       *cov_om_th_m1 ) + 
+                                bonus *var_tran * (  psi_tilde   * (-1)
+                                                   + psi       *   (1/theta - 1/(1-exp(-theta))))
     cov_y_c[j,j-1] <- (1.0/6.0*phi - 0.5*phi_tilde)*var_perm +
-                         var_tran * (  psi_tilde *cov_omega_1
-                                      + psi       *cov_om_th_1 )
+                             (1-bonus)*var_tran * (  psi_tilde *cov_omega_1
+                                                   + psi       *cov_om_th_1 ) +
+                                bonus *var_tran * (  psi_tilde   * (-1)
+                                                   + psi       *   ((2.0-exp(-theta))/theta -1.0/(1-exp(-theta))  +   + (1.0-exp(-theta))^2/theta) )
   }
   for (M in 2:(T-1)){
     for (j in (M+1):T){
-      cov_y_c[j-M,j] <- var_tran * (  psi_tilde *cov_omega_2
-                                    + psi       *cov_om_th_m2 ) *exp(-(M-2)*omega)
-      cov_y_c[j,j-M] <- var_tran * (  psi_tilde *cov_omega_2
-                                    + psi       *cov_om_th_2  ) *exp(-(M-2)*theta)
+      cov_y_c[j-M,j] <- (1-bonus)*var_tran * (  psi_tilde *cov_omega_2
+                                              + psi       *cov_om_th_m2 ) *exp(-(M-2)*omega) + 
+                            bonus*var_tran * (  psi_tilde *0.0
+                                              + psi       *0.0 ) *exp(-(M-2)*omega)
+      cov_y_c[j,j-M] <- (1-bonus)*var_tran * (  psi_tilde *cov_omega_2   *exp(-(M-2)*omega)
+                                              + psi       *cov_om_th_2   *exp(-(M-2)*theta) ) +
+                            bonus*var_tran * (  psi_tilde *0.0 
+                                              + psi  * (-(1-exp(-theta))^3/theta) )    *exp(-(M-2)*theta)
     }
   }
   #/* Final matrix */
@@ -189,7 +200,7 @@ splurge_parameter_estimation <- function(c_vector, Omega, T, init_params=NULL, f
     init_params[10] <- 0.01 #variance of taste shocks
     init_params[11] <- 0.00 #bonus
   }
-  
+
   #fix certain parameters if required
   if (!is.null(fixed_index)) {
       estimate_params = init_params[!fixed_index]
@@ -199,6 +210,12 @@ splurge_parameter_estimation <- function(c_vector, Omega, T, init_params=NULL, f
     fixed_index = matrix(FALSE,nrow=length(init_params),ncol=0)
     fixed_values = matrix(0,nrow=0,ncol=0)
   }
+  #lower and upper bounds for parameters
+  lower = init_params*0.0 +0.001
+  lower[5] = -0.5 #allow psi to go negative
+  upper = init_params*0.0 + 20.0
+  lower = lower[!fixed_index]
+  upper = upper[!fixed_index]
 
   #Select moments used in the estimation
   if (is.null(moments_for_estimation)){
@@ -229,8 +246,6 @@ splurge_parameter_estimation <- function(c_vector, Omega, T, init_params=NULL, f
   
   #solved_objective <- nlm(objectiveFun, estimate_params, T, c_vector_used, weight_matrix,fixed_index,fixed_values,moments_for_estimation, iterlim = 1000, print.level=2)
   #solved_params <- solved_objective$estimate
-  lower = estimate_params*0.0 + 0.001
-  upper = estimate_params*0.0 + 20.0
   solved_objective <- optim(estimate_params, objectiveFun, gr=NULL, T, c_vector_used, weight_matrix,fixed_index,fixed_values,moments_for_estimation, method="L-BFGS-B",lower=lower,upper=upper)
   solved_params <- solved_objective$par
   jacob <- jacobian(implied_cov_splurge_varying_params_only, solved_params,T=T,fixed_index=fixed_index,fixed_values=fixed_values,moments_for_estimation=moments_for_estimation)
