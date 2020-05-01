@@ -59,9 +59,8 @@ def implied_inc_cov_continuous(params, T):
   # read in the parameters
   var_perm          = params[0] # variance of permanent shock
   var_tran          = params[1] # variance of both slightly persistent and completely transitory shock
-  trans_half_life   = params[2] # half life of slightly persistent shock
+  omega             = params[2] # decay parameter of slightly persistent shock
   bonus             = params[3] # fraction of var_tran that is purely transitory (like a bonus)
-  omega = np.log(2)/trans_half_life # converts half life to exponential decay parameter
   
   # Set up covariance matrix, initialized to zero
   cov_y  = np.zeros((T,T)) #/* Income */
@@ -91,14 +90,70 @@ def implied_inc_cov_continuous(params, T):
   cov_y_vec=cov_y[vech_indicesT]
   return cov_y_vec
 
+def implied_inc_cov_discrete(impact_matrix, T, sub_periods=12):
+    cov_y = np.zeros((T,T))
+    for k in range(impact_matrix.shape[1]):
+        for i in range(T):
+            for j in range(i+1):
+                cov_y[i,i-j] += (impact_matrix[i+1,k] - impact_matrix[i,k])*(impact_matrix[i-j+1,k] - impact_matrix[i-j,k])
+    for i in range(T):
+        for j in range(i+1):
+            cov_y[i-j,i] = cov_y[i,i-j]
+    vech_indicesT = vech_indices(T)
+    cov_y_vec = cov_y[vech_indicesT]
+    return cov_y_vec
+
+def impact_matrix_bonus(var_bonus, T, sub_periods=12):
+    impact_matrix = np.zeros((T+1,(T+1)*sub_periods))
+    for k in range(impact_matrix.shape[1]):
+        impact_matrix[np.floor(k/(sub_periods*1.0)).astype(int),k] += (1.0/sub_periods*var_bonus)**0.5
+    return impact_matrix
+
+def impact_matrix_tran(var_tran, omega, T, sub_periods=12, pre_periods=10):
+    # calc average income in current year from shock = approx (1-np.exp(-omega))/omega
+    mean_income_flow = 0.0
+    for k in range(sub_periods):
+        mean_income_flow = np.sum(np.exp(-omega*range(k)/(sub_periods*1.0)))/sub_periods
+    impact_matrix = np.zeros((T+1,(T+pre_periods+1)*sub_periods))
+    num_shocks = impact_matrix.shape[1]
+    for k in range(num_shocks):
+        for i in range(num_shocks-k):
+            index = np.floor((k+i)/(sub_periods*1.0)).astype(int) - pre_periods
+            if index>=0:
+                impact_matrix[index,k] += ((var_tran/sub_periods)**0.5)/(mean_income_flow*sub_periods)*np.exp(-omega*i/(sub_periods*1.0))
+    return impact_matrix
+
+def implied_inc_cov_composite(params,T):
+    var_perm = params[0]
+    var_tran = params[1]
+    omega    = params[2]
+    bonus    = params[3]
+    rho      = params[4]
+    perm_inc_cov = implied_inc_cov_continuous([0.0,var_perm,rho,0.0],T)
+    #perm_inc_cov = implied_inc_cov_continuous([var_perm,0.0,omega,0.0],T)
+    tran_inc_cov = implied_inc_cov_continuous([0.0,var_tran*(1-bonus),omega,0.0],T)
+    
+#    impact_tran = impact_matrix_tran(var_tran*(1-bonus),omega,T,sub_periods=5,pre_periods=10)
+#    tran_inc_cov = implied_inc_cov_discrete(impact_tran, T, sub_periods=12)
+        
+    bonus_inc_cov = implied_inc_cov_continuous([0.0,var_tran*bonus,omega,1.0],T)
+    implied_inc_cov_composite = perm_inc_cov + tran_inc_cov + bonus_inc_cov
+    return implied_inc_cov_composite
+
 def parameter_estimation(empirical_moments, Omega, T, init_params, optimize_index=None, bounds=None):
   '''
   Estimates model parameters
   '''
   #fix certain parameters if required
-  if (optimize_index!=None):
+  if (optimize_index is not None):
       optimize_params = init_params[optimize_index]
       fixed_params      = init_params[np.logical_not(optimize_index)]
+      if (bounds is not None):
+          all_bounds = bounds
+          bounds = []
+          for i in range(len(all_bounds)):
+              if optimize_index[i]:
+                  bounds += [all_bounds[i]]
   else:
     optimize_params = init_params
     optimize_index = np.array([True]*len(init_params), dtype=bool)
@@ -108,7 +163,7 @@ def parameter_estimation(empirical_moments, Omega, T, init_params, optimize_inde
     params = np.zeros(len(optimize_index))
     params[optimize_index] = optimize_params
     params[np.logical_not(optimize_index)] = fixed_params
-    model_cov = implied_inc_cov_continuous(params, T)
+    model_cov = implied_inc_cov_composite(params, T)
     return model_cov
   def objectiveFun(optimize_params, T, empirical_cov, weight_matrix, optimize_index, fixed_params):
     model_cov = implied_cov_limited_params(optimize_params, T, optimize_index, fixed_params)
@@ -120,7 +175,7 @@ def parameter_estimation(empirical_moments, Omega, T, init_params, optimize_inde
   #ret = objectiveFun(optimize_params, T, empirical_moments, weight_matrix,optimize_index, fixed_params)
   
   # Do minimization
-  solved_objective = minimize(objectiveFun, init_params, args=(T, empirical_moments, weight_matrix, optimize_index, fixed_params), method='L-BFGS-B', bounds=bounds, options= {'disp': True})
+  solved_objective = minimize(objectiveFun, optimize_params, args=(T, empirical_moments, weight_matrix, optimize_index, fixed_params), method='L-BFGS-B', bounds=bounds, options= {'disp': True})
   solved_params = solved_objective.x
   # Calculate standard errors
   fun_for_jacob = lambda params: implied_cov_limited_params(params, T, optimize_index, fixed_params)

@@ -23,12 +23,19 @@ Omega_inc = Omega_all[income_moments,:][:,income_moments]
 # set up initial guess and bounds
 init_params = np.array([0.005,  #permanent variance
                         0.003,  #transitory variance
-                        0.5,    #half life of slightly persistant transitory shock
-                        0.5])   #fraction of transitory variance that has no persistence
+                        0.5,    #decay parameter of slightly persistant transitory shock
+                        0.5,   #fraction of transitory variance that has no persistence
+                        0.01])  # decay parameter of perm shock
+optimize_index = np.array([True,  #permanent variance
+                        True,  #transitory variance
+                        True,    #decay parameter of slightly persistant transitory shock
+                        True,   #fraction of transitory variance that has no persistence
+                        False])
 bounds     = [(0.000001,0.1),
               (0.000001,0.1),
               (0.1,5.0),
-              (0.0,1.0)]
+              (0.0,1.0),
+              (-0.1,0.1)]
 
 # Do estimation
-estimates, estimate_se = parameter_estimation(empirical_moments_inc, Omega_inc, T, init_params, bounds=bounds)
+estimates, estimate_se = parameter_estimation(empirical_moments_inc, Omega_inc, T, init_params, bounds=bounds, optimize_index=optimize_index)
