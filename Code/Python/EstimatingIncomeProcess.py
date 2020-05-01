@@ -38,7 +38,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from pathlib import Path
 import ipywidgets as widgets
-from min_distance import parameter_estimation, vech_indices, implied_inc_cov_composite
+from min_distance import parameter_estimation, parameter_estimation_by_subgroup, vech_indices, implied_inc_cov_composite
 
 
 # %% {"code_folding": [0]}
@@ -182,8 +182,8 @@ bonus_widget = widgets.FloatSlider(
 )
 perm_decay_widget = widgets.FloatSlider(
     value=estimates[4],
-    min=-0.0101,
-    max=0.0101,
+    min=-0.1,
+    max=0.1,
     step=0.0003,
     description='Perm Decay',
     disabled=False,
@@ -200,20 +200,53 @@ perm_decay_widget = widgets.FloatSlider(
 widgets.interact(plot_moments,perm_var=perm_var_widget,tran_var=tran_var_widget,half_life=half_life_widget,bonus=bonus_widget,perm_decay=perm_decay_widget);
 
 
-# %% [markdown]
-# # Saving Rates and Lifetime Income Growth
-#
-# We are interested in how income growth over the lifetime of the agent affects their saving rate and asset ratio $a=A/P$.
-#
+# %%
+# Esimtate parameters by quintiles of certain properties
+def plot_by_subgroup(subgroup_stub, T, init_params, optimize_index=optimize_index, bounds=bounds):
+    subgroup_names = []
+    num_quantiles = 5
+    if (subgroup_stub=='moments_by_Income_quantile' or subgroup_stub=='moments_by_MeanCons_quantile' or subgroup_stub=='moments_by_URE_quantile' or subgroup_stub=='moments_by_NNP_quantile'):
+        num_quantiles = 10
+    for i in range(num_quantiles):
+        subgroup_names += ["X"+str(i+1)]
+    estimates, standard_errors = parameter_estimation_by_subgroup(moments_BPP_dir,subgroup_stub,subgroup_names, T, init_params, optimize_index=optimize_index, bounds=bounds)
+    fig = plt.figure(figsize=(14, 7),constrained_layout=True)
+    fig.figsize=(20,40)
+    gs = fig.add_gridspec(2, 2)
+    panel1 = fig.add_subplot(gs[0, 0])
+    panel2 = fig.add_subplot(gs[0, 1])
+    panel3 = fig.add_subplot(gs[1, 0])
+    panel4 = fig.add_subplot(gs[1, 1])
+    panel1.bar(np.array(range(num_quantiles))+1,estimates[:,0])
+    panel2.bar(np.array(range(num_quantiles))+1,estimates[:,1])
+    panel3.bar(np.array(range(num_quantiles))+1,np.log(2)/estimates[:,2])
+    panel4.bar(np.array(range(num_quantiles))+1,estimates[:,3])
+    panel1.set_title("Permanent Variance")
+    panel2.set_title("Transitory Variance")
+    panel3.set_title("Half-life of Somewhat Transitory Shock")
+    panel4.set_title("Share that is Completely Transitory")
+    panel1.set_xlabel("Quantile")
+    panel2.set_xlabel("Quantile")
+    panel3.set_xlabel("Quantile")
+    panel4.set_xlabel("Quantile")
+    
+subgroup_widget = widgets.Dropdown(
+    options=['moments_by_liquid_wealth_quantile',
+             'moments_by_net_wealth_quantile',
+             'moments_by_Income_quantile', 
+             'moments_by_NNP_quantile',
+             'moments_by_URE_quantile',
+             'moments_by_MeanCons_quantile'],
+    value='moments_by_liquid_wealth_quantile',
+    description='Subgroup',
+    disabled=False,
+)
+
 
 # %%
+# plot by different quantiles
+widgets.interact(plot_by_subgroup,subgroup_stub=subgroup_widget, T=widgets.fixed(T), init_params=widgets.fixed(init_params), optimize_index=widgets.fixed(optimize_index), bounds=widgets.fixed(bounds));
 
-# %% [markdown]
-# # SOLUTION : Comment
-#
-# How could the model's predictions be compared with empirical data, for example from the Norwegian registry?
-#
-# One way would be to calibrate the model so that it is matches the distribution of wealth in Norway in the last few years when data are available (as long as those are years where nothing particularly surprising was going on in Norway).
-#
-# Using the kinds of techniques in [The Distribution of Wealth and the MPC](http://econ.jhu.edu/people/ccarroll/papers/cstwMPC) we can calibrate the life cycle model such that it does the best job it can to match the empirical data.  (This would also require recalibration of the model's inputs to Norwegian data, for example on the magnitude of transitory and permanent shocks to income).  Then we could calculate, in the model and in the data, the kinds of statistics captured in the figures above (constructed with a U.S. calibration).  
-#
+
+
+# %%

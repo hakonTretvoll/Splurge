@@ -1,6 +1,6 @@
 
 
-R_code_folder =  "C:/Users/edmun/OneDrive/Documents/Research/Denmark/Splurge/Code"
+R_code_folder =  "C:/Users/edmun/OneDrive/Documents/Research/Denmark/Splurge/Code/Rcode"
 moments_BPP_dir = "C:/Users/edmun/OneDrive/Documents/Research/Denmark/Splurge/Data/BPP_moments"
 
 source(paste(R_code_folder,"/Estimate_splurge.r", sep=""))

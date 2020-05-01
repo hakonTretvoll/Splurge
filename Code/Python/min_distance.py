@@ -5,6 +5,7 @@ import pandas as pd
 import numdifftools as nd
 from numpy.linalg import inv
 from scipy.optimize import minimize
+from pathlib import Path
 
 def vech_indices(N):
     rows = [];
@@ -129,8 +130,8 @@ def implied_inc_cov_composite(params,T):
     omega    = params[2]
     bonus    = params[3]
     rho      = params[4]
-    perm_inc_cov = implied_inc_cov_continuous([0.0,var_perm,rho,0.0],T)
-    #perm_inc_cov = implied_inc_cov_continuous([var_perm,0.0,omega,0.0],T)
+    #perm_inc_cov = implied_inc_cov_continuous([0.0,var_perm,rho,0.0],T)
+    perm_inc_cov = implied_inc_cov_continuous([var_perm,0.0,omega,0.0],T)
     tran_inc_cov = implied_inc_cov_continuous([0.0,var_tran*(1-bonus),omega,0.0],T)
     
 #    impact_tran = impact_matrix_tran(var_tran*(1-bonus),omega,T,sub_periods=5,pre_periods=10)
@@ -196,8 +197,24 @@ def parameter_estimation(empirical_moments, Omega, T, init_params, optimize_inde
   return output_params, output_se
 
 
-
-
+# Function to estimate parameters for each subgroup for which we have moments
+def parameter_estimation_by_subgroup(moments_BPP_dir,subgroup_stub,subgroup_names, T, init_params, optimize_index=None, bounds=None):
+    subgroup_estimates = np.zeros((len(subgroup_names),5))
+    subgroup_se = np.zeros((len(subgroup_names), 5))
+    #Just doing income for now - remove other moments
+    income_moments = np.array([[False]*2*T]*2*T, dtype=bool)
+    income_moments[T:,T:] = True
+    vech_indices2T = vech_indices(2*T)
+    income_moments = income_moments[vech_indices2T]
+    for i in range(len(subgroup_names)):
+        this_empirical_moments_all = np.genfromtxt(Path(moments_BPP_dir,subgroup_stub+str(i+1)+"c_vector.txt"), delimiter=',')
+        this_Omega_all          =    np.genfromtxt(Path(moments_BPP_dir,subgroup_stub+str(i+1)+"_omega.txt"), delimiter=',')
+        this_empirical_moments_inc = this_empirical_moments_all[income_moments]
+        this_Omega_inc = this_Omega_all[income_moments,:][:,income_moments]
+        this_estimates, this_estimate_se = parameter_estimation(this_empirical_moments_inc, this_Omega_inc, T, init_params, optimize_index, bounds)
+        subgroup_estimates[i,:] = this_estimates
+        subgroup_se[i,:] = this_estimate_se
+    return subgroup_estimates, subgroup_se
 
 
 
