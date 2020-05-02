@@ -30,7 +30,7 @@
 #
 # # Estimating Income Processes
 #
-# The permanent/transitory decomposition has held up well, but some questions remain. Scandanavian data provides us an unparalled opportunitity to measure this in more detail
+# The permanent/transitory decomposition has held up well, but some questions remain. Scandinavian data provides us an unparalled opportunitity to measure this in more detail
 
 # %% {"code_folding": []}
 # Initial imports and notebook setup, click arrow to show
@@ -91,13 +91,15 @@ for t in range(T):
 
 
 
+
+
 # %%
 # Set up plotting and widgets for understanding estimation
-def plot_moments(perm_var,tran_var,half_life,bonus,perm_decay):
+def plot_moments(perm_var,tran_var,half_life,bonus,perm_decay,compare="All Households",quantile=1):
     fig = plt.figure(figsize=(14, 4.5),constrained_layout=True)
-    gs = fig.add_gridspec(1, 5)
-    panel1 = fig.add_subplot(gs[0, 0])
-    panel2 = fig.add_subplot(gs[0, 1:])
+    gs = fig.add_gridspec(1, 10)
+    panel1 = fig.add_subplot(gs[0, 0:3])
+    panel2 = fig.add_subplot(gs[0, 4:])
     panel1.plot(mean_moments[0:3], marker='o')
     panel2.plot(mean_moments, marker='o',label="Mean over all years")
     panel1.plot(mean_moments[0:3]+1.96*mean_moments_se[0:3],linestyle="--",color="gray",linewidth=1.0)
@@ -112,12 +114,12 @@ def plot_moments(perm_var,tran_var,half_life,bonus,perm_decay):
         i += T-t
     panel2.plot(mean_moments+1.96*mean_moments_se,linestyle="--",color="gray",linewidth=1.0)
     panel2.plot(mean_moments-1.96*mean_moments_se,linestyle="--",color="gray",linewidth=1.0)
-    panel1.set_title('Variance and First Covariance')
-    panel2.set_title('Covariance $(\Delta y_t, \Delta y_{t+n})$')
-    panel1.set_xlabel("Time Difference (n)")
-    panel2.set_xlabel("Time Difference (n)")
-    panel1.set_ylabel("Covariance")
-    panel2.set_ylabel("Covariance")
+    panel1.set_title('Variance and\n First Covariance', fontsize=17)
+    panel2.set_title('Covariance $(\Delta y_t, \Delta y_{t+n})$', fontsize=17)
+    #panel1.set_xlabel("Time Difference (n)", fontsize=15)
+    panel2.set_xlabel("Time Difference (n)", fontsize=15)
+    panel1.set_ylabel("Covariance", fontsize=15)
+    #panel2.set_ylabel("Covariance", fontsize=12)
     panel1.axhline(y=0, color='k',linewidth=1.0)
     panel2.axhline(y=0, color='k',linewidth=1.0)
     panel1.set_ylim(np.array([-0.0025,0.0125]))
@@ -131,8 +133,46 @@ def plot_moments(perm_var,tran_var,half_life,bonus,perm_decay):
     user_cov = implied_inc_cov_composite(user_params,T)[0:T]
     user_panel1, = panel1.plot(user_cov[0:3], color="orange")
     user_panel2, = panel2.plot(user_cov, color="orange", label='User')
-    panel2.legend(loc='lower right')
-    
+    #comparison graph
+    if (compare=="All Households"):
+        panel1.plot(mean_moments[0:3],color='#1f77b4')
+        panel2.plot(mean_moments,label="Compare To",color='#1f77b4')
+        quantile_widget.options=['1']
+    else:
+        if (compare=="Liquid Wealth (quintiles)"):
+            subgroup_stub='moments_by_liquid_wealth_quantile'
+            quantile_widget.options=['1','2','3','4','5']
+        elif (compare=="Net Wealth (quintiles)"):
+            subgroup_stub='moments_by_net_wealth_quantile'
+            quantile_widget.options=['1','2','3','4','5']
+        elif (compare=="Income (deciles)"):
+            subgroup_stub='moments_by_Income_quantile'
+            quantile_widget.options=['1','2','3','4','5','6','7','8','9','10']
+        elif (compare=="Net Nominal Position (deciles)"):
+            subgroup_stub='moments_by_NNP_quantile'
+            quantile_widget.options=['1','2','3','4','5','6','7','8','9','10']
+        elif (compare=="Interest Rate Exposure (deciles)"):
+            subgroup_stub='moments_by_URE_quantile'
+            quantile_widget.options=['1','2','3','4','5','6','7','8','9','10']
+        elif (compare=="Consumption (deciles)"):
+            subgroup_stub='moments_by_MeanCons_quantile'
+            quantile_widget.options=['1','2','3','4','5','6','7','8','9','10']
+        subgroup_name = subgroup_stub+str(quantile)+"c_vector.txt"
+        empirical_moments_subgroup_all = np.genfromtxt(Path(moments_BPP_dir,subgroup_name), delimiter=',')
+        empirical_moments_subgroup_inc = empirical_moments_subgroup_all[income_moments]
+        mean_subgroup_moments = np.zeros(T)
+        for t in range(T):
+            this_diag = np.diag(1.0/(T-t)*np.ones(T-t),-t)
+            this_diag = this_diag[vech_indicesT]
+            mean_subgroup_moments[t] = np.dot(this_diag,empirical_moments_subgroup_inc)
+        panel1.plot(mean_subgroup_moments[0:3],color='#e377c2')
+        panel2.plot(mean_subgroup_moments,label="Compare To",color='#e377c2')
+    panel2.legend(loc='lower right', prop={'size': 12})
+        
+
+
+
+# %%
 #set up widgets with default values
 cont_update = False
 perm_var_widget = widgets.FloatSlider(
@@ -195,7 +235,7 @@ perm_decay_widget = widgets.FloatSlider(
     readout=True,
     readout_format='.4f',
 )
-reset_button = widgets.Button(description="Reset to estimated values",layout=widgets.Layout(width='20%', height='30px'))
+reset_button = widgets.Button(description="Reset to estimated values",layout=widgets.Layout(width='80%', height='30px'))
 def reset_button_clicked(b):
     perm_var_widget.value = estimates[0]
     tran_var_widget.value = estimates[1]
@@ -204,11 +244,52 @@ def reset_button_clicked(b):
     perm_decay_widget.value = estimates[4]
 reset_button.on_click(reset_button_clicked)
 
+compare_widget = widgets.Dropdown(
+    options=['All Households',
+             'Liquid Wealth (quintiles)',
+             'Net Wealth (quintiles)',
+             'Income (deciles)', 
+             'Net Nominal Position (deciles)',
+             'Interest Rate Exposure (deciles)',
+             'Consumption (deciles)'],
+    value='All Households',
+    description='Compare To',
+    disabled=False,
+)
+quantiles = ['1']
+quantile_widget = widgets.Dropdown(
+    options=quantiles,
+    value='1',
+    description='Quantile',
+    disabled=False,
+)
+graph_update = widgets.interactive(plot_moments,
+                                   perm_var=perm_var_widget,
+                                   tran_var=tran_var_widget,
+                                   half_life=half_life_widget,
+                                   bonus=bonus_widget,
+                                   perm_decay=widgets.fixed(0.01),
+                                   compare=compare_widget,
+                                   quantile=quantile_widget
+)
+control_widget=widgets.TwoByTwoLayout(
+          bottom_left=reset_button,
+          top_right=compare_widget,
+          bottom_right=quantile_widget
+)
+slider_widget=widgets.TwoByTwoLayout(
+          top_left=perm_var_widget,
+          top_right=tran_var_widget,
+          bottom_left = half_life_widget,
+          bottom_right=bonus_widget
+)
 
 # %%
-# Plot moments with ability for user to enter parameters
-display(reset_button)
-widgets.interact(plot_moments,perm_var=perm_var_widget,tran_var=tran_var_widget,half_life=half_life_widget,bonus=bonus_widget,perm_decay=perm_decay_widget);
+# plot moments
+display( slider_widget )
+display(control_widget)
+graph_update.update()
+graph_update.children[6]
 
 
 # %%
