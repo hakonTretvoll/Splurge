@@ -76,11 +76,10 @@ bounds     = [(0.000001,0.1),
 
 
 # %% {"code_folding": [0]}
-# Do estimation
+# Do estimation for all population (25-55 or there abouts I think)
 estimates, estimate_se = parameter_estimation(empirical_moments_inc, Omega_inc, T, init_params, bounds=bounds, optimize_index=optimize_index)  
 implied_cov = implied_inc_cov_composite(estimates,T)[0:T]
 # Calculate mean empirical moments and standard errors
-empirical_moments_matrix = np.zeros((T,T))
 vech_indicesT = vech_indices(T)
 mean_moments = np.zeros(T)
 mean_moments_se = np.zeros(T)
@@ -89,24 +88,28 @@ for t in range(T):
     this_diag = this_diag[vech_indicesT]
     mean_moments[t] = np.dot(this_diag,empirical_moments_inc)
     mean_moments_se[t] = np.dot(np.dot(this_diag,Omega_inc),this_diag)**0.5
-empirical_moments_matrix[vech_indicesT] = empirical_moments_inc
-empirical_moments_matrix[(vech_indicesT[0],vech_indicesT[1])] = empirical_moments_inc
 
 
 
 # %%
-
-# Plot empirical moments
+# Set up plotting and widgets for understanding estimation
 def plot_moments(perm_var,tran_var,half_life,bonus,perm_decay):
-    fig = plt.figure(figsize=(14, 7),constrained_layout=True)
-    fig.figsize=(20,40)
-    gs = fig.add_gridspec(2, 5)
+    fig = plt.figure(figsize=(14, 4.5),constrained_layout=True)
+    gs = fig.add_gridspec(1, 5)
     panel1 = fig.add_subplot(gs[0, 0])
     panel2 = fig.add_subplot(gs[0, 1:])
     panel1.plot(mean_moments[0:3], marker='o')
-    panel2.plot(mean_moments, marker='o',label="Data")
+    panel2.plot(mean_moments, marker='o',label="Mean over all years")
     panel1.plot(mean_moments[0:3]+1.96*mean_moments_se[0:3],linestyle="--",color="gray",linewidth=1.0)
     panel1.plot(mean_moments[0:3]-1.96*mean_moments_se[0:3],linestyle="--",color="gray",linewidth=1.0)
+    #plot the moments for each year
+    panel1.plot(empirical_moments_inc[0:3], marker='x',linewidth=0,color="blue")
+    panel2.plot(np.array(range(T)),empirical_moments_inc[0:T], marker='x',linewidth=0,label="Individual years",color="blue")
+    i = T
+    for t in np.array(range(T-1))+1:
+        panel1.plot(empirical_moments_inc[i:min(i+T-t,i+3)], marker='x',linewidth=0,color="blue")
+        panel2.plot(np.array(range(T-t)),empirical_moments_inc[i:i+T-t], marker='x',linewidth=0,color="blue")
+        i += T-t
     panel2.plot(mean_moments+1.96*mean_moments_se,linestyle="--",color="gray",linewidth=1.0)
     panel2.plot(mean_moments-1.96*mean_moments_se,linestyle="--",color="gray",linewidth=1.0)
     panel1.set_title('Variance and First Covariance')
@@ -117,8 +120,8 @@ def plot_moments(perm_var,tran_var,half_life,bonus,perm_decay):
     panel2.set_ylabel("Covariance")
     panel1.axhline(y=0, color='k',linewidth=1.0)
     panel2.axhline(y=0, color='k',linewidth=1.0)
-    panel1.set_ylim([-0.0025,0.0125])
-    panel2.set_ylim([-0.001,0.00025])
+    panel1.set_ylim(np.array([-0.0025,0.0125]))
+    panel2.set_ylim(np.array([-0.0013,0.0003]))
     #plot estimates
     panel1.plot(implied_cov[0:3], color="red")
     panel2.plot(implied_cov, color="red", label='Estimated')
@@ -192,11 +195,19 @@ perm_decay_widget = widgets.FloatSlider(
     readout=True,
     readout_format='.4f',
 )
-    
+reset_button = widgets.Button(description="Reset to estimated values",layout=widgets.Layout(width='20%', height='30px'))
+def reset_button_clicked(b):
+    perm_var_widget.value = estimates[0]
+    tran_var_widget.value = estimates[1]
+    half_life_widget.value = np.log(2)/estimates[2]
+    bonus_widget.value = estimates[3]
+    perm_decay_widget.value = estimates[4]
+reset_button.on_click(reset_button_clicked)
 
 
 # %%
 # Plot moments with ability for user to enter parameters
+display(reset_button)
 widgets.interact(plot_moments,perm_var=perm_var_widget,tran_var=tran_var_widget,half_life=half_life_widget,bonus=bonus_widget,perm_decay=perm_decay_widget);
 
 
@@ -204,9 +215,24 @@ widgets.interact(plot_moments,perm_var=perm_var_widget,tran_var=tran_var_widget,
 # Esimtate parameters by quintiles of certain properties
 def plot_by_subgroup(subgroup_stub, T, init_params, optimize_index=optimize_index, bounds=bounds):
     subgroup_names = []
-    num_quantiles = 5
-    if (subgroup_stub=='moments_by_Income_quantile' or subgroup_stub=='moments_by_MeanCons_quantile' or subgroup_stub=='moments_by_URE_quantile' or subgroup_stub=='moments_by_NNP_quantile'):
-        num_quantiles = 10
+    if (subgroup_stub=="Liquid Wealth (quintiles)"):
+        subgroup_stub='moments_by_liquid_wealth_quantile'
+        num_quantiles=5
+    elif (subgroup_stub=="Net Wealth (quintiles)"):
+        subgroup_stub='moments_by_net_wealth_quantile'
+        num_quantiles=5
+    elif (subgroup_stub=="Income (deciles)"):
+        subgroup_stub='moments_by_Income_quantile'
+        num_quantiles=10
+    elif (subgroup_stub=="Net Nominal Position (deciles)"):
+        subgroup_stub='moments_by_NNP_quantile'
+        num_quantiles=10
+    elif (subgroup_stub=="Interest Rate Exposure (deciles)"):
+        subgroup_stub='moments_by_URE_quantile'
+        num_quantiles=10
+    elif (subgroup_stub=="Consumption (deciles)"):
+        subgroup_stub='moments_by_MeanCons_quantile'
+        num_quantiles=10
     for i in range(num_quantiles):
         subgroup_names += ["X"+str(i+1)]
     estimates, standard_errors = parameter_estimation_by_subgroup(moments_BPP_dir,subgroup_stub,subgroup_names, T, init_params, optimize_index=optimize_index, bounds=bounds)
@@ -231,13 +257,13 @@ def plot_by_subgroup(subgroup_stub, T, init_params, optimize_index=optimize_inde
     panel4.set_xlabel("Quantile")
     
 subgroup_widget = widgets.Dropdown(
-    options=['moments_by_liquid_wealth_quantile',
-             'moments_by_net_wealth_quantile',
-             'moments_by_Income_quantile', 
-             'moments_by_NNP_quantile',
-             'moments_by_URE_quantile',
-             'moments_by_MeanCons_quantile'],
-    value='moments_by_liquid_wealth_quantile',
+    options=['Liquid Wealth (quintiles)',
+             'Net Wealth (quintiles)',
+             'Income (deciles)', 
+             'Net Nominal Position (deciles)',
+             'Interest Rate Exposure (deciles)',
+             'Consumption (deciles)'],
+    value='Income (deciles)',
     description='Subgroup',
     disabled=False,
 )
