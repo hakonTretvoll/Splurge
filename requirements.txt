@@ -1,0 +1,6 @@
+# requirements for running on binder
+numpy
+pathlib
+pandas
+numdifftools
+scipy
