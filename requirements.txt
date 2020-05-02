@@ -4,3 +4,5 @@ pathlib
 pandas
 numdifftools
 scipy
+matplotlib
+ipywidgets
