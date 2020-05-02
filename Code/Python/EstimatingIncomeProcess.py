@@ -46,6 +46,8 @@ from min_distance import parameter_estimation, parameter_estimation_by_subgroup,
 moments_BPP_dir = Path("../../Data/BPP_moments/") 
 empirical_moments_all = np.genfromtxt(Path(moments_BPP_dir,"moments_all_c_vector.txt"), delimiter=',')
 Omega_all =    np.genfromtxt(Path(moments_BPP_dir,"moments_all_omega.txt"), delimiter=',')
+moments_CS_dir = Path("../../Data/CarrollSamwickMoments/") 
+empirical_moments_CS_all = np.genfromtxt(Path(moments_CS_dir,"moments_all_c_vector.csv"), delimiter=',')
 T=12
 #Just doing income for now - remove other moments
 income_moments = np.array([[False]*2*T]*2*T, dtype=bool)
@@ -78,65 +80,113 @@ bounds     = [(0.000001,0.1),
 # %% {"code_folding": [0]}
 # Do estimation for all population (25-55 or there abouts I think)
 estimates, estimate_se = parameter_estimation(empirical_moments_inc, Omega_inc, T, init_params, bounds=bounds, optimize_index=optimize_index)  
-implied_cov = implied_inc_cov_composite(estimates,T)[0:T]
-# Calculate mean empirical moments and standard errors
+implied_cov_full = implied_inc_cov_composite(estimates,T)
+implied_cov = implied_cov_full[0:T]
+implied_CS_moments = CS_from_BPP(implied_cov_full)[0:T]
+# Get Carroll Samwick moments (just appropriate sum of BPP moments)
 vech_indicesT = vech_indices(T)
+def CS_from_BPP(BPP_moments):
+    CS_moments = np.zeros((T,T))
+    BPP_moments_matrix = np.zeros((T,T))
+    BPP_moments_matrix[vech_indicesT] = BPP_moments
+    BPP_moments_matrix[(vech_indicesT[1],vech_indicesT[0])] = BPP_moments
+    for j in range(T):
+        for i in np.array(range(T-j))+j:
+            CS_moments[i,j] = np.sum(BPP_moments_matrix[j:i+1,j:i+1])
+    CS_moments = CS_moments[vech_indicesT]
+    return CS_moments
+CS_moments = CS_from_BPP(empirical_moments_inc)
+# Calculate mean empirical moments and standard errors
 mean_moments = np.zeros(T)
 mean_moments_se = np.zeros(T)
+CS_moments_mean = np.zeros(T)
 for t in range(T):
     this_diag = np.diag(1.0/(T-t)*np.ones(T-t),-t)
     this_diag = this_diag[vech_indicesT]
     mean_moments[t] = np.dot(this_diag,empirical_moments_inc)
     mean_moments_se[t] = np.dot(np.dot(this_diag,Omega_inc),this_diag)**0.5
-
-
-
+    CS_moments_mean[t] = np.dot(this_diag,CS_moments)
 
 
 # %%
 # Set up plotting and widgets for understanding estimation
 def plot_moments(perm_var,tran_var,half_life,bonus,perm_decay,compare="All Households",quantile=1):
-    fig = plt.figure(figsize=(14, 4.5),constrained_layout=True)
-    gs = fig.add_gridspec(1, 13)
+    fig = plt.figure(figsize=(14, 9),constrained_layout=True)
+    gs = fig.add_gridspec(2, 13)
     panel1 = fig.add_subplot(gs[0, 0:3])
     panel2 = fig.add_subplot(gs[0, 4:])
+    #panel3 = fig.add_subplot(gs[1, 0:3])
+    panel4 = fig.add_subplot(gs[1, 1:-2])
+    
     panel1.plot(mean_moments[0:3], marker='o')
     panel2.plot(mean_moments, marker='o',label="Mean over all years")
+    CS_Ndiff = np.array(range(T))+1.0
+    CS_moments_factor = (CS_Ndiff-1.0/3.0)
+    #panel3.plot(CS_Ndiff[0:3],CS_moments_mean[0:3]/CS_moments_factor[0:3], marker='o')
+    panel4.plot(CS_Ndiff,CS_moments_mean/CS_moments_factor, marker='o',label="Mean over all years")
+    # Standard errors
     panel1.plot(mean_moments[0:3]+1.96*mean_moments_se[0:3],linestyle="--",color="gray",linewidth=1.0)
     panel1.plot(mean_moments[0:3]-1.96*mean_moments_se[0:3],linestyle="--",color="gray",linewidth=1.0)
+    panel2.plot(mean_moments+1.96*mean_moments_se,linestyle="--",color="gray",linewidth=1.0)
+    panel2.plot(mean_moments-1.96*mean_moments_se,linestyle="--",color="gray",linewidth=1.0)
+    
     #plot the moments for each year
     panel1.plot(empirical_moments_inc[0:3], marker='x',linewidth=0,color='#1f77b4')
     panel2.plot(np.array(range(T)),empirical_moments_inc[0:T], marker='x',linewidth=0,label="Individual years",color='#1f77b4')
+    #panel3.plot(CS_Ndiff[0:3],CS_moments[0:3]/CS_moments_factor[0:3], marker='x',linewidth=0,color='#1f77b4')
+    panel4.plot(CS_Ndiff[0:T],CS_moments[0:T]/CS_moments_factor, marker='x',linewidth=0,label="Individual years",color='#1f77b4')
+    
     i = T
     for t in np.array(range(T-1))+1:
         panel1.plot(empirical_moments_inc[i:min(i+T-t,i+3)], marker='x',linewidth=0,color='#1f77b4')
         panel2.plot(np.array(range(T-t)),empirical_moments_inc[i:i+T-t], marker='x',linewidth=0,color='#1f77b4')
+        #panel3.plot(CS_Ndiff[0:min(T-t,3)],CS_moments[i:min(i+T-t,i+3)]/CS_moments_factor[0:min(T-t,3)], marker='x',linewidth=0,color='#1f77b4')
+        panel4.plot(CS_Ndiff[0:T-t],CS_moments[i:i+T-t]/CS_moments_factor[0:T-t], marker='x',linewidth=0,color='#1f77b4')
         i += T-t
-    panel2.plot(mean_moments+1.96*mean_moments_se,linestyle="--",color="gray",linewidth=1.0)
-    panel2.plot(mean_moments-1.96*mean_moments_se,linestyle="--",color="gray",linewidth=1.0)
     panel1.set_title('Variance and\n First Covariance', fontsize=17)
-    panel2.set_title('Covariance $(\Delta y_t, \Delta y_{t+n})$', fontsize=17)
+    panel2.set_title('Covariance $(\Delta y_t, \Delta y_{t+n})$ - BPP (2008)', fontsize=17)
+    #panel3.set_title('First Few Variances', fontsize=17)
+    panel4.set_title('Var$(\Delta^n y)/(n-1/3)$ - Carroll Samwick (1998)', fontsize=17)
+    
     panel1.set_xlabel("Time Difference (n)", fontsize=15)
     panel2.set_xlabel("Time Difference (n)", fontsize=15)
+    #panel3.set_xlabel("Time Difference (n)", fontsize=15)
+    panel4.set_xlabel("Time Difference (n)", fontsize=15)
+    
     panel1.set_ylabel("Covariance", fontsize=15)
     #panel2.set_ylabel("Covariance", fontsize=12)
+    #panel3.set_ylabel("Variance", fontsize=15)
+    panel4.set_ylabel("Var$(\Delta^n y)/(n-1/3)$", fontsize=15)
+    
     panel1.axhline(y=0, color='k',linewidth=1.0)
     panel2.axhline(y=0, color='k',linewidth=1.0)
+    #panel3.axhline(y=0, color='k',linewidth=1.0)
+    panel4.axhline(y=0, color='k',linewidth=1.0)
+    
     panel1.set_ylim(np.array([-0.0025,0.0125]))
     panel2.set_ylim(np.array([-0.0013,0.0003]))
+    panel4.set_ylim(np.array([0.0,0.02]))
     #plot estimates
     panel1.plot(implied_cov[0:3], color="red")
     panel2.plot(implied_cov, color="red", label='Estimated')
+    panel4.plot(CS_Ndiff,implied_CS_moments/CS_moments_factor, color="red", label='Estimated')
+    
+    
     #plot user defined
     omega = np.log(2)/half_life
     user_params = np.array([perm_var,tran_var,omega,bonus,perm_decay])
-    user_cov = implied_inc_cov_composite(user_params,T)[0:T]
+    user_cov_full = implied_inc_cov_composite(user_params,T)
+    user_cov = user_cov_full[0:T]
+    user_CS_moments = CS_from_BPP(user_cov_full)[0:T]   
+    
     user_panel1, = panel1.plot(user_cov[0:3], color="orange")
     user_panel2, = panel2.plot(user_cov, color="orange", label='User')
+    panel4.plot(CS_Ndiff,user_CS_moments/CS_moments_factor, color="orange", label='User')
     #comparison graph
     if (compare=="All Households"):
         panel1.plot(mean_moments[0:3],color='#1f77b4')
         panel2.plot(mean_moments,label="Compare To",color='#1f77b4')
+        panel4.plot(CS_Ndiff,CS_moments_mean/CS_moments_factor,label="Compare To",color='#1f77b4')
         quantile_widget.options=['1']
     else:
         if (compare=="Liquid Wealth (quintiles)"):
@@ -160,15 +210,21 @@ def plot_moments(perm_var,tran_var,half_life,bonus,perm_decay,compare="All House
         subgroup_name = subgroup_stub+str(quantile)+"c_vector.txt"
         empirical_moments_subgroup_all = np.genfromtxt(Path(moments_BPP_dir,subgroup_name), delimiter=',')
         empirical_moments_subgroup_inc = empirical_moments_subgroup_all[income_moments]
+        CS_moments_subgroup = CS_from_BPP(empirical_moments_subgroup_inc)
         mean_subgroup_moments = np.zeros(T)
+        CS_mean_subgroup_moments = np.zeros(T)
         for t in range(T):
             this_diag = np.diag(1.0/(T-t)*np.ones(T-t),-t)
             this_diag = this_diag[vech_indicesT]
             mean_subgroup_moments[t] = np.dot(this_diag,empirical_moments_subgroup_inc)
+            CS_mean_subgroup_moments[t] = np.dot(this_diag,CS_mean_subgroup_moments)
         panel1.plot(mean_subgroup_moments[0:3],color='#e377c2')
         panel2.plot(mean_subgroup_moments,label="Compare To",color='#e377c2')
+        panel4.plot(CS_Ndiff,CS_mean_subgroup_moments/CS_moments_factor,label="Compare To",color='#e377c2')     
     panel2.legend(loc='lower right', prop={'size': 12})
+    panel4.legend(loc='lower left', prop={'size': 12})
         
+
 
 
 
