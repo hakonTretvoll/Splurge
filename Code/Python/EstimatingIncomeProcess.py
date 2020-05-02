@@ -97,7 +97,7 @@ for t in range(T):
 # Set up plotting and widgets for understanding estimation
 def plot_moments(perm_var,tran_var,half_life,bonus,perm_decay,compare="All Households",quantile=1):
     fig = plt.figure(figsize=(14, 4.5),constrained_layout=True)
-    gs = fig.add_gridspec(1, 10)
+    gs = fig.add_gridspec(1, 13)
     panel1 = fig.add_subplot(gs[0, 0:3])
     panel2 = fig.add_subplot(gs[0, 4:])
     panel1.plot(mean_moments[0:3], marker='o')
@@ -116,7 +116,7 @@ def plot_moments(perm_var,tran_var,half_life,bonus,perm_decay,compare="All House
     panel2.plot(mean_moments-1.96*mean_moments_se,linestyle="--",color="gray",linewidth=1.0)
     panel1.set_title('Variance and\n First Covariance', fontsize=17)
     panel2.set_title('Covariance $(\Delta y_t, \Delta y_{t+n})$', fontsize=17)
-    #panel1.set_xlabel("Time Difference (n)", fontsize=15)
+    panel1.set_xlabel("Time Difference (n)", fontsize=15)
     panel2.set_xlabel("Time Difference (n)", fontsize=15)
     panel1.set_ylabel("Covariance", fontsize=15)
     #panel2.set_ylabel("Covariance", fontsize=12)
