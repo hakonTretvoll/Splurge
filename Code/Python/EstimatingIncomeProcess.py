@@ -82,7 +82,6 @@ bounds     = [(0.000001,0.1),
 estimates, estimate_se = parameter_estimation(empirical_moments_inc, Omega_inc, T, init_params, bounds=bounds, optimize_index=optimize_index)  
 implied_cov_full = implied_inc_cov_composite(estimates,T)
 implied_cov = implied_cov_full[0:T]
-implied_CS_moments = CS_from_BPP(implied_cov_full)[0:T]
 # Get Carroll Samwick moments (just appropriate sum of BPP moments)
 vech_indicesT = vech_indices(T)
 def CS_from_BPP(BPP_moments):
@@ -96,6 +95,7 @@ def CS_from_BPP(BPP_moments):
     CS_moments = CS_moments[vech_indicesT]
     return CS_moments
 CS_moments = CS_from_BPP(empirical_moments_inc)
+implied_CS_moments = CS_from_BPP(implied_cov_full)[0:T]
 # Calculate mean empirical moments and standard errors
 mean_moments = np.zeros(T)
 mean_moments_se = np.zeros(T)
@@ -217,14 +217,12 @@ def plot_moments(perm_var,tran_var,half_life,bonus,perm_decay,compare="All House
             this_diag = np.diag(1.0/(T-t)*np.ones(T-t),-t)
             this_diag = this_diag[vech_indicesT]
             mean_subgroup_moments[t] = np.dot(this_diag,empirical_moments_subgroup_inc)
-            CS_mean_subgroup_moments[t] = np.dot(this_diag,CS_mean_subgroup_moments)
+            CS_mean_subgroup_moments[t] = np.dot(this_diag,CS_moments_subgroup)
         panel1.plot(mean_subgroup_moments[0:3],color='#e377c2')
         panel2.plot(mean_subgroup_moments,label="Compare To",color='#e377c2')
         panel4.plot(CS_Ndiff,CS_mean_subgroup_moments/CS_moments_factor,label="Compare To",color='#e377c2')     
     panel2.legend(loc='lower right', prop={'size': 12})
     panel4.legend(loc='lower left', prop={'size': 12})
-        
-
 
 
 
@@ -409,7 +407,6 @@ subgroup_widget = widgets.Dropdown(
 # %%
 # plot by different quantiles
 widgets.interact(plot_by_subgroup,subgroup_stub=subgroup_widget, T=widgets.fixed(T), init_params=widgets.fixed(init_params), optimize_index=widgets.fixed(optimize_index), bounds=widgets.fixed(bounds));
-
 
 
 # %%
