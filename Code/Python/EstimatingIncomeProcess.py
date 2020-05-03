@@ -24,6 +24,18 @@
 #     nbconvert_exporter: python
 #     pygments_lexer: ipython3
 #     version: 3.7.6
+#   toc:
+#     base_numbering: 1
+#     nav_menu: {}
+#     number_sections: true
+#     sideBar: true
+#     skip_h1_title: false
+#     title_cell: Table of Contents
+#     title_sidebar: Contents
+#     toc_cell: false
+#     toc_position: {}
+#     toc_section_display: true
+#     toc_window_display: false
 # ---
 
 # %% [markdown]
@@ -32,7 +44,7 @@
 #
 # The permanent/transitory decomposition has held up well, but some questions remain. Scandinavian data provides us an unparalled opportunitity to measure this in more detail
 
-# %% {"code_folding": []}
+# %% {"code_folding": [0]}
 # Initial imports and notebook setup, click arrow to show
 import numpy as np
 import matplotlib.pyplot as plt
@@ -58,7 +70,7 @@ empirical_moments_inc = empirical_moments_all[income_moments]
 Omega_inc = Omega_all[income_moments,:][:,income_moments]
 
 
-# %%
+# %% {"code_folding": [0]}
 # set up initial guess and bounds
 init_params = np.array([0.005,  #permanent variance
                         0.003,  #transitory variance
@@ -108,7 +120,7 @@ for t in range(T):
     CS_moments_mean[t] = np.dot(this_diag,CS_moments)
 
 
-# %%
+# %% {"code_folding": [0]}
 # Set up plotting and widgets for understanding estimation
 def plot_moments(perm_var,tran_var,half_life,bonus,perm_decay,compare="All Households",quantile=1):
     fig = plt.figure(figsize=(14, 9),constrained_layout=True)
@@ -226,7 +238,9 @@ def plot_moments(perm_var,tran_var,half_life,bonus,perm_decay,compare="All House
 
 
 
-# %%
+
+
+# %% {"code_folding": [0]}
 #set up widgets with default values
 cont_update = False
 perm_var_widget = widgets.FloatSlider(
@@ -338,7 +352,7 @@ slider_widget=widgets.TwoByTwoLayout(
           bottom_right=bonus_widget
 )
 
-# %%
+# %% {"code_folding": [0]}
 # plot moments
 display( slider_widget )
 display(control_widget)
@@ -346,7 +360,7 @@ graph_update.update()
 graph_update.children[6]
 
 
-# %%
+# %% {"code_folding": [0]}
 # Esimtate parameters by quintiles of certain properties
 def plot_by_subgroup(subgroup_stub, T, init_params, optimize_index=optimize_index, bounds=bounds):
     subgroup_names = []
@@ -408,5 +422,3 @@ subgroup_widget = widgets.Dropdown(
 # plot by different quantiles
 widgets.interact(plot_by_subgroup,subgroup_stub=subgroup_widget, T=widgets.fixed(T), init_params=widgets.fixed(init_params), optimize_index=widgets.fixed(optimize_index), bounds=widgets.fixed(bounds));
 
-
-# %%
