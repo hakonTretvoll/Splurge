@@ -54,7 +54,7 @@ from min_distance import parameter_estimation, parameter_estimation_by_subgroup,
 
 
 # %% {"code_folding": [0]}
-#First load the moments
+# Load empirical moments and variance matrix
 moments_BPP_dir = Path("../../Data/BPP_moments/") 
 empirical_moments_all = np.genfromtxt(Path(moments_BPP_dir,"moments_all_c_vector.txt"), delimiter=',')
 Omega_all =    np.genfromtxt(Path(moments_BPP_dir,"moments_all_omega.txt"), delimiter=',')
@@ -70,8 +70,8 @@ empirical_moments_inc = empirical_moments_all[income_moments]
 Omega_inc = Omega_all[income_moments,:][:,income_moments]
 
 
-# %% {"code_folding": [0]}
-# set up initial guess and bounds
+# %% {"code_folding": []}
+# set up estimation: initial guess, which parameters to estimate, and bounds
 init_params = np.array([0.005,  #permanent variance
                         0.003,  #transitory variance
                         0.5,    #decay parameter of slightly persistant transitory shock
@@ -90,7 +90,7 @@ bounds     = [(0.000001,0.1),
 
 
 # %% {"code_folding": [0]}
-# Do estimation for all population (25-55 or there abouts I think)
+# Estimate parameters and calculate mean of moments over years
 estimates, estimate_se = parameter_estimation(empirical_moments_inc, Omega_inc, T, init_params, bounds=bounds, optimize_index=optimize_index)  
 implied_cov_full = implied_inc_cov_composite(estimates,T)
 implied_cov = implied_cov_full[0:T]
@@ -121,7 +121,7 @@ for t in range(T):
 
 
 # %% {"code_folding": [0]}
-# Set up plotting and widgets for understanding estimation
+# Define plotting function
 def plot_moments(perm_var,tran_var,half_life,bonus,perm_decay,compare="All Households",quantile=1):
     fig = plt.figure(figsize=(14, 9),constrained_layout=True)
     gs = fig.add_gridspec(2, 13)
@@ -237,11 +237,8 @@ def plot_moments(perm_var,tran_var,half_life,bonus,perm_decay,compare="All House
     panel4.legend(loc='lower left', prop={'size': 12})
 
 
-
-
-
 # %% {"code_folding": [0]}
-#set up widgets with default values
+#set up widgets with default values for plot
 cont_update = False
 perm_var_widget = widgets.FloatSlider(
     value=estimates[0],
@@ -353,7 +350,7 @@ slider_widget=widgets.TwoByTwoLayout(
 )
 
 # %% {"code_folding": [0]}
-# plot moments
+# Plot BPP and Carroll Samwick moments, with estimates and user-defined parameters
 display( slider_widget )
 display(control_widget)
 graph_update.update()
@@ -361,7 +358,7 @@ graph_update.children[6]
 
 
 # %% {"code_folding": [0]}
-# Esimtate parameters by quintiles of certain properties
+# Define plotting function for parameters by quantiles
 def plot_by_subgroup(subgroup_stub, T, init_params, optimize_index=optimize_index, bounds=bounds):
     subgroup_names = []
     if (subgroup_stub=="Liquid Wealth (quintiles)"):
@@ -418,7 +415,7 @@ subgroup_widget = widgets.Dropdown(
 )
 
 
-# %%
-# plot by different quantiles
+# %% {"code_folding": [0]}
+# Plot parameter estimates by selected quantiles
 widgets.interact(plot_by_subgroup,subgroup_stub=subgroup_widget, T=widgets.fixed(T), init_params=widgets.fixed(init_params), optimize_index=widgets.fixed(optimize_index), bounds=widgets.fixed(bounds));
 
