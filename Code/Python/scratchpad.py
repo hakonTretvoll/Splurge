@@ -1,32 +1,108 @@
+
 import numpy as np
 
+# calculates exp(x) -1 - x to high precision
+def expm1mx(x):
+    if abs(x)>0.95:
+        ret = np.expm1(x)-x
+    else:
+        shx2 = np.sinh(x/2.0)
+        sh2x2 = shx2**2
+        ret = 2.0 * sh2x2 + (2.0 * shx2 * (1 + sh2x2)**0.5 - x)
+    return ret
+# calculates exp(x) -1 - x- 0.5x**2 to high precision
+def expm1mxm05x2(x):
+    if abs(x)>0.2:
+        ret = expm1mx(x)-x**2/2.0
+    else:
+        ret = 0.0
+        N=10
+        for i in range(N):
+            n = N-i+2
+            n_factorial = 1
+            for j in range(n):
+                n_factorial *= (j+1)
+            ret += x**n/n_factorial
+    return ret
 
-    
+
+def cov_omega_theta(omega, theta):
+  omegax = -1.0/np.expm1(-omega)
+  thetax = -1.0/np.expm1(-theta)
+  omth = omega + theta
+  omthx = -1.0/np.expm1(-omth)
+  #variance at T
+  var = 2.0*thetax*omegax  \
+          + thetax*omegax*(  ((2.0-np.exp(-theta))*(2.0-np.exp(-omega))+1.0)/(omth*omthx)     \
+                           - (3.0-np.exp(-theta))/(theta*thetax) - (3.0-np.exp(-omega))/(omega*omegax)   )  \
+            +1.0/(omth*omegax*thetax)
+  # Covariance for moving the theta process up to T+1
+  cov_1 = thetax*omegax*((2.0-np.exp(-theta))/(theta*thetax)    \
+                          + 1.0/(omega*omegax) - (2.0-np.exp(-theta))/(omth*omthx)  \
+                          -1.0 )    \
+           - omegax/thetax*((2.0-np.exp(-omega))/(omth*omthx) - 1.0/(theta*thetax) )     \
+           + np.exp(-theta)/(omegax*thetax*omth)
+  return cov_1
+
+            
+def cov_omth_test(omega, theta):
+  expm1_om   = np.expm1(-omega)
+  expm1_th   = np.expm1(-theta)
+  omth = omega + theta
+  expm1_omth = np.expm1(-omth)
+  
+  expm1mx_om   = expm1mx(-omega)
+  expm1mx_th   = expm1mx(-theta)
+  expm1mx_omth = expm1mx(-omth)
+  expm1mxm05x2_om   = expm1mxm05x2(-omega)
+  expm1mxm05x2_th   = expm1mxm05x2(-theta)
+  expm1mxm05x2_omth = expm1mxm05x2(-omth)
+  
+#  expm1_div_th = expm1_th/theta
+#  expm1_div_om = expm1_om/omega
+#  expm1mxm05x2_div_om = expm1mxm05x2_om/omega**2
+#  expm1mxm05x2_div_th = expm1mxm05x2_th/theta**2
+#  expm1mxm05x2_div_omth = expm1mxm05x2_omth/(omega*theta)
+  #variance at T
+  var_T0 = 1.0/(expm1_om*expm1_th)*(              expm1mxm05x2_om/omega +              expm1mxm05x2_th/theta -                           expm1mxm05x2_omth/omth)
+#  var_T0 = 1.0/(expm1_div_om*expm1_div_th)*(expm1mxm05x2_div_om/theta +  expm1mxm05x2_div_th/omega - expm1mxm05x2_div_omth/omth)
+  var_T1 = 1.0/(expm1_om*expm1_th)*( (1-expm1_om)*expm1mxm05x2_om/omega + (1-expm1_th)*expm1mxm05x2_th/theta - (1-expm1_om)*(1-expm1_th)*expm1mxm05x2_omth/omth + (1-omth/2)*(expm1_om*expm1_th)  + omega*expm1_th/2 + theta*expm1_om/2)
+#  var_T1     = 1.0/(expm1_div_om*expm1_div_th)*( (1-expm1_om)*expm1mxm05x2_div_om/theta + (1-expm1_th)*expm1mxm05x2_div_th/omega - (1-expm1_om)*(1-expm1_th)*expm1mxm05x2_div_omth/omth + (1-omth/2)*(expm1_div_om*expm1_div_th)  + expm1_div_th/2 + expm1_div_om/2)
+  var_Tinf = expm1_om*expm1_th/omth
+#  var_Tinf     = omega*theta*expm1_div_om*expm1_div_th/omth
+  var = var_T0 + var_T1 + var_Tinf
+  # Covariance for moving the theta process up to T+1
+  cov_1_T0 = 1.0/(expm1_om*expm1_th)*( -(2.0-np.exp(-theta))*expm1_th/theta  - expm1_om/omega + (2.0-np.exp(-theta))*expm1_omth/omth  -1.0 )
+  #cov_1_T0 = 1.0/(expm1_om*expm1_th)*( (expm1mxm05x2_omth-expm1mxm05x2_th)*expm1_th/theta - omega**2*expm1_th/(2.0*theta) - expm1mx_om/omega   )
+  #cov_1_T1  = - expm1_th/expm1_om*( -(2.0-np.exp(-omega))*expm1_omth/omth + expm1_th/theta ) 
+  cov_1_T1  = - expm1_th/expm1_om*( -(1-expm1_om)*expm1mx_omth/omth - expm1_om + expm1mx_th/theta) 
+  cov_1_Tinf = np.exp(-theta)*expm1_om*expm1_th/omth
+  cov_1 = cov_1_T0 + cov_1_T1 + cov_1_Tinf
+  return cov_1
+
+omega = 0.13
+theta = 0.09
+x1=cov_omega_theta(omega,theta)
+x2=cov_omth_test(omega,theta)
+xdiff=cov_omega_theta(omega,theta)-cov_omth_test(omega,theta)
+[x1,x2,xdiff]
 
 
-var_perm = 0.005
-var_tran = 0.003
-bonus = 0.3
-omega = 0.8
-T=4
-init_params = np.array([var_perm,  #permanent variance
-                        var_tran,  #transitory variance
-                        omega,    #decay parameter of slightly persistant transitory shock
-                        bonus])   #fraction of transitory variance that has no persistence
-composite = implied_inc_cov_composite(init_params,T)
-orig = implied_inc_cov_continuous(init_params,T)
-    
-sub_periods=50
-init_params[0]=0.0
-impact_bonus = impact_matrix_bonus(var_tran,T,sub_periods)
-implied_cov_bonus_discrete = implied_inc_cov_discrete(impact_bonus, T, sub_periods)    
-implied_cov_bonus_cont = implied_inc_cov_continuous(init_params, T)
+omega = 0.000000000000001
+theta = 0.09
+x1=cov_omega_theta(omega,theta)
+x2=cov_omth_test(omega,theta)
+xdiff=cov_omega_theta(omega,theta)-cov_omth_test(omega,theta)
+[x1,x2,xdiff]
+
+omega = 0.000000000000001
+theta = 0.000000000000001
+x1=cov_omega_theta(omega,theta)
+x2=cov_omth_test(omega,theta)
+xdiff=cov_omega_theta(omega,theta)-cov_omth_test(omega,theta)
+[x1,x2,xdiff]
 
 
-init_params[3]=0.0
-impact_tran = impact_matrix_tran(var_tran,T,sub_periods)
-implied_cov_tran_discrete = implied_inc_cov_discrete(impact_tran, T, sub_periods)
-implied_cov_tran_cont = implied_inc_cov_continuous(init_params, T)
 
 
 

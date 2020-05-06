@@ -15,13 +15,14 @@ def vech_indices(N):
         columns += [i]*(N-i)
     return (np.array(rows), np.array(columns))
 
-#This is the covariance of two stochastic processes, driven by the same underlying shocks, 
-#but which decay at different np.exponential rates omega and theta
+# This is the covariance of two time aggregated stochastic processes, 
+# driven by the same underlying shocks, 
+# but which decay at different exponential rates omega and theta
 def cov_omega_theta(omega, theta):
-  omegax = 1.0/(1.0-np.exp(-omega))
-  thetax = 1.0/(1.0-np.exp(-theta))
+  omegax = -1.0/np.expm1(-omega)
+  thetax = -1.0/np.expm1(-theta)
   omth = omega + theta
-  omthx = 1.0/(1.0-np.exp(-omth))
+  omthx = -1.0/np.expm1(-omth)
   #variance at T
   var = 2.0*thetax*omegax  \
           + thetax*omegax*(  ((2.0-np.exp(-theta))*(2.0-np.exp(-omega))+1.0)/(omth*omthx)     \
@@ -130,13 +131,13 @@ def implied_inc_cov_composite(params,T):
     omega    = params[2]
     bonus    = params[3]
     rho      = params[4]
-    #perm_inc_cov = implied_inc_cov_continuous([0.0,var_perm,rho,0.0],T)
-    perm_inc_cov = implied_inc_cov_continuous([var_perm,0.0,omega,0.0],T)
+    if rho==0.0:
+        perm_inc_cov = implied_inc_cov_continuous([var_perm,0.0,omega,0.0],T)
+    else:
+        perm_inc_cov = implied_inc_cov_continuous([0.0,var_perm,rho,0.0],T)
     tran_inc_cov = implied_inc_cov_continuous([0.0,var_tran*(1-bonus),omega,0.0],T)
-    
 #    impact_tran = impact_matrix_tran(var_tran*(1-bonus),omega,T,sub_periods=5,pre_periods=10)
 #    tran_inc_cov = implied_inc_cov_discrete(impact_tran, T, sub_periods=12)
-        
     bonus_inc_cov = implied_inc_cov_continuous([0.0,var_tran*bonus,omega,1.0],T)
     implied_inc_cov_composite = perm_inc_cov + tran_inc_cov + bonus_inc_cov
     return implied_inc_cov_composite
