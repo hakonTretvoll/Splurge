@@ -42,43 +42,78 @@ def cov_omega_theta(omega, theta):
                           -1.0 )    \
            - omegax/thetax*((2.0-np.exp(-omega))/(omth*omthx) - 1.0/(theta*thetax) )     \
            + np.exp(-theta)/(omegax*thetax*omth)
-  return cov_1
+
+  # Covariance for moving the theta process up to T+2
+  cov_2 = -omegax/thetax * (1.0/(theta*thetax) - 1.0/(omth*omthx))  \
+          -omegax/thetax * (np.exp(-theta)*(2.0-np.exp(-omega))/(omth*omthx) - np.exp(-theta)/(theta*thetax) ) \
+          +np.exp(-2.0*theta)/(omegax*thetax*omth)
+  return np.array([var, cov_1, cov_2])
 
             
 def cov_omth_test(omega, theta):
-  expm1_om   = np.expm1(-omega)
-  expm1_th   = np.expm1(-theta)
-  omth = omega + theta
-  expm1_omth = np.expm1(-omth)
-  
-  expm1mx_om   = expm1mx(-omega)
-  expm1mx_th   = expm1mx(-theta)
-  expm1mx_omth = expm1mx(-omth)
-  expm1mxm05x2_om   = expm1mxm05x2(-omega)
-  expm1mxm05x2_th   = expm1mxm05x2(-theta)
-  expm1mxm05x2_omth = expm1mxm05x2(-omth)
-  
-#  expm1_div_th = expm1_th/theta
-#  expm1_div_om = expm1_om/omega
-#  expm1mxm05x2_div_om = expm1mxm05x2_om/omega**2
-#  expm1mxm05x2_div_th = expm1mxm05x2_th/theta**2
-#  expm1mxm05x2_div_omth = expm1mxm05x2_omth/(omega*theta)
-  #variance at T
-  var_T0 = 1.0/(expm1_om*expm1_th)*(              expm1mxm05x2_om/omega +              expm1mxm05x2_th/theta -                           expm1mxm05x2_omth/omth)
-#  var_T0 = 1.0/(expm1_div_om*expm1_div_th)*(expm1mxm05x2_div_om/theta +  expm1mxm05x2_div_th/omega - expm1mxm05x2_div_omth/omth)
-  var_T1 = 1.0/(expm1_om*expm1_th)*( (1-expm1_om)*expm1mxm05x2_om/omega + (1-expm1_th)*expm1mxm05x2_th/theta - (1-expm1_om)*(1-expm1_th)*expm1mxm05x2_omth/omth + (1-omth/2)*(expm1_om*expm1_th)  + omega*expm1_th/2 + theta*expm1_om/2)
-#  var_T1     = 1.0/(expm1_div_om*expm1_div_th)*( (1-expm1_om)*expm1mxm05x2_div_om/theta + (1-expm1_th)*expm1mxm05x2_div_th/omega - (1-expm1_om)*(1-expm1_th)*expm1mxm05x2_div_omth/omth + (1-omth/2)*(expm1_div_om*expm1_div_th)  + expm1_div_th/2 + expm1_div_om/2)
-  var_Tinf = expm1_om*expm1_th/omth
-#  var_Tinf     = omega*theta*expm1_div_om*expm1_div_th/omth
-  var = var_T0 + var_T1 + var_Tinf
-  # Covariance for moving the theta process up to T+1
-  cov_1_T0 = 1.0/(expm1_om*expm1_th)*( -(2.0-np.exp(-theta))*expm1_th/theta  - expm1_om/omega + (2.0-np.exp(-theta))*expm1_omth/omth  -1.0 )
-  #cov_1_T0 = 1.0/(expm1_om*expm1_th)*( (expm1mxm05x2_omth-expm1mxm05x2_th)*expm1_th/theta - omega**2*expm1_th/(2.0*theta) - expm1mx_om/omega   )
-  #cov_1_T1  = - expm1_th/expm1_om*( -(2.0-np.exp(-omega))*expm1_omth/omth + expm1_th/theta ) 
-  cov_1_T1  = - expm1_th/expm1_om*( -(1-expm1_om)*expm1mx_omth/omth - expm1_om + expm1mx_th/theta) 
-  cov_1_Tinf = np.exp(-theta)*expm1_om*expm1_th/omth
-  cov_1 = cov_1_T0 + cov_1_T1 + cov_1_Tinf
-  return cov_1
+  '''
+    Calculates the covariance of two time aggregated exponential processes, 
+    decaying at rates omega and theta
+    Code is complicated by needing machine accuracy in many parts to get a 
+    smooth function
+  '''
+  if (omega==0.0 and theta==0.0):
+      cov_m2 = 0.0
+      cov_m1 = 1.0/6.0
+      var    = 2.0/3.0
+      cov_1  = 1.0/6.0
+      cov_2  = 0.0
+  else:
+      expm1_om   = np.expm1(-omega)
+      expm1_th   = np.expm1(-theta)
+      expm1mx_om   = expm1mx(-omega)
+      expm1mx_th   = expm1mx(-theta)
+      expm1mxm05x2_om   = expm1mxm05x2(-omega)
+      expm1mxm05x2_th   = expm1mxm05x2(-theta)
+      omth = omega + theta
+      expm1mx_omth = expm1mx(-omth)
+      expm1mxm05x2_omth = expm1mxm05x2(-omth)
+      if (omega==0.0):
+          #variance at T
+          var_T0 = -1/(expm1_th*theta**2)*(expm1mxm05x2_th + expm1mx_th*theta )
+          var_T1 = -np.exp(-theta)/expm1_th*( expm1mx_th/theta + 1/theta**2*(expm1mxm05x2_th+theta*expm1mx_th) + 0.5*expm1_th )
+          var_Tinf = 0.0
+          var = var_T0 + var_T1 + var_Tinf
+          # Covariance for moving the theta process up to T+1
+          cov_1_T0 = -1/expm1_th *( -np.exp(-theta)/theta**2*(1-np.exp(-theta) - theta*np.exp(-theta)) -0.5)
+          cov_1_T1  = 999
+          cov_1_Tinf = 0.0
+          cov_1 = cov_1_T0 + cov_1_T1 + cov_1_Tinf
+      elif (theta==0.0):
+          var_T0 = 999
+          var_T1 = 999
+          var_Tinf = 999
+          var = var_T0 + var_T1 + var_Tinf
+          
+          cov_1 = 999
+          cov_2 = 999
+      else:
+          omth = omega + theta
+          expm1mx_omth = expm1mx(-omth)
+
+          expm1mxm05x2_omth = expm1mxm05x2(-omth)
+          
+          #variance at T
+          var_T0 = 1.0/(expm1_om*expm1_th)*(              expm1mxm05x2_om/omega +              expm1mxm05x2_th/theta -                           expm1mxm05x2_omth/omth)
+          var_T1 = 1.0/(expm1_om*expm1_th)*( (1-expm1_om)*expm1mxm05x2_om/omega + (1-expm1_th)*expm1mxm05x2_th/theta - (1-expm1_om)*(1-expm1_th)*expm1mxm05x2_omth/omth + (1-omth/2)*(expm1_om*expm1_th)  + omega*expm1_th/2 + theta*expm1_om/2)
+          var_Tinf = expm1_om*expm1_th/omth
+          var = var_T0 + var_T1 + var_Tinf
+          # Covariance for moving the theta process up to T+1
+          cov_1_T0 = 1.0/(expm1_om*expm1_th)*( (1-expm1_th)*(  expm1mxm05x2_omth/omth - expm1mxm05x2_th/theta ) - expm1mxm05x2_om/omega - omega*expm1_th/2.0   )
+          cov_1_T1  = - expm1_th/expm1_om*( -(1-expm1_om)*expm1mx_omth/omth - expm1_om + expm1mx_th/theta) 
+          cov_1_Tinf = np.exp(-theta)*expm1_om*expm1_th/omth
+          cov_1 = cov_1_T0 + cov_1_T1 + cov_1_Tinf
+          # Covariance for moving the theta process up to T+2
+          cov_2_T0 = -expm1_th/expm1_om * ( expm1mx_omth/omth - expm1mx_th/theta)
+          cov_2_T1 = -expm1_th/expm1_om * np.exp(-theta)* ( expm1mx_th/theta - (1-expm1_om)*expm1mx_omth/omth - expm1_om)
+          cov_2_Tinf = np.exp(-2.0*theta)*expm1_om*expm1_th/omth
+          cov_2 = cov_2_T0 + cov_2_T1 + cov_2_Tinf
+  return np.array([var, cov_1, cov_2])
 
 omega = 0.13
 theta = 0.09
@@ -96,6 +131,14 @@ xdiff=cov_omega_theta(omega,theta)-cov_omth_test(omega,theta)
 [x1,x2,xdiff]
 
 omega = 0.000000000000001
+theta = 0.0000000000000001
+x1=cov_omega_theta(omega,theta)
+x2=cov_omth_test(omega,theta)
+xdiff=cov_omega_theta(omega,theta)-cov_omth_test(omega,theta)
+[x1,x2,xdiff]
+
+
+omega = 0.0000000000000001
 theta = 0.000000000000001
 x1=cov_omega_theta(omega,theta)
 x2=cov_omth_test(omega,theta)
