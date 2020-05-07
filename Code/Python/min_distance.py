@@ -6,52 +6,7 @@ import numdifftools as nd
 from numpy.linalg import inv
 from scipy.optimize import minimize
 from pathlib import Path
-
-def vech_indices(N):
-    rows = [];
-    columns = []
-    for i in range(N):
-        rows += range(i,N)
-        columns += [i]*(N-i)
-    return (np.array(rows), np.array(columns))
-
-# This is the covariance of two time aggregated stochastic processes, 
-# driven by the same underlying shocks, 
-# but which decay at different exponential rates omega and theta
-def cov_omega_theta(omega, theta):
-  omegax = -1.0/np.expm1(-omega)
-  thetax = -1.0/np.expm1(-theta)
-  omth = omega + theta
-  omthx = -1.0/np.expm1(-omth)
-  #variance at T
-  var = 2.0*thetax*omegax  \
-          + thetax*omegax*(  ((2.0-np.exp(-theta))*(2.0-np.exp(-omega))+1.0)/(omth*omthx)     \
-                           - (3.0-np.exp(-theta))/(theta*thetax) - (3.0-np.exp(-omega))/(omega*omegax)   )  \
-            +1.0/(omth*omegax*thetax)
-  # Covariance for moving the theta process up to T+1
-  cov_1 = thetax*omegax*((2.0-np.exp(-theta))/(theta*thetax)    \
-                          + 1.0/(omega*omegax) - (2.0-np.exp(-theta))/(omth*omthx)  \
-                          -1.0 )    \
-           - omegax/thetax*((2.0-np.exp(-omega))/(omth*omthx) - 1.0/(theta*thetax) )     \
-           + np.exp(-theta)/(omegax*thetax*omth)
-  # Covariance for moving the theta process up to T+2
-  cov_2 = -omegax/thetax * (1.0/(theta*thetax) - 1.0/(omth*omthx))  \
-          -omegax/thetax * (np.exp(-theta)*(2.0-np.exp(-omega))/(omth*omthx) - np.exp(-theta)/(theta*thetax) ) \
-          +np.exp(-2.0*theta)/(omegax*thetax*omth)
-  #cov_M = np.exp(-(M-2.0)*theta)*cov2
-  # Covariance for moving the omega process up to T+1
-  cov_m1 =  thetax*omegax*((2.0-np.exp(-omega))/(omega*omegax)     \
-                           + 1.0/(theta*thetax) - (2.0-np.exp(-omega))/(omth*omthx)  \
-                           -1.0 )     \
-          - thetax/omegax*((2.0-np.exp(-theta))/(omth*omthx) - 1.0/(omega*omegax) ) \
-          + np.exp(-omega)/(omegax*thetax*omth)
-  # Covariance for moving the omega process up to T+2
-  cov_m2 = -thetax/omegax * (1.0/(omega*omegax) - 1.0/(omth*omthx)) \
-           -thetax/omegax * (np.exp(-omega)*(2.0-np.exp(-theta))/(omth*omthx) - np.exp(-omega)/(omega*omegax) ) \
-           + np.exp(-2.0*omega)/(omegax*thetax*omth)
-  #cov_mM = np.exp((2.0+M)*omega)*cov2
-  cov =  np.array([cov_m2, cov_m1, var, cov_1, cov_2])
-  return cov
+from tools import vech_indices, cov_omega_theta
 
 def implied_inc_cov_continuous(params, T):
   '''

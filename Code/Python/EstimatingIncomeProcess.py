@@ -70,13 +70,13 @@ empirical_moments_inc = empirical_moments_all[income_moments]
 Omega_inc = Omega_all[income_moments,:][:,income_moments]
 
 
-# %% {"code_folding": []}
+# %% {"code_folding": [0]}
 # set up estimation: initial guess, which parameters to estimate, and bounds
 init_params = np.array([0.005,  #permanent variance
                         0.003,  #transitory variance
                         0.5,    #decay parameter of slightly persistant transitory shock
                         0.5,   #fraction of transitory variance that has no persistence
-                        0.01])  # decay parameter of perm shock
+                        0.0])  # decay parameter of perm shock
 optimize_index = np.array([True,  #permanent variance
                         True,  #transitory variance
                         True,    #decay parameter of slightly persistant transitory shock
@@ -185,7 +185,11 @@ def plot_moments(perm_var,tran_var,half_life,bonus,perm_decay,compare="All House
     
     
     #plot user defined
-    omega = np.log(2)/half_life
+    if (half_life!=0.0):
+        omega = np.log(2)/half_life
+    else:
+        omega = 1.0 # use dummy value for omega, and replace with a 'bonus' type shock instead - this is equivalent to zero half life
+        bonus = 1.0
     user_params = np.array([perm_var,tran_var,omega,bonus,perm_decay])
     user_cov_full = implied_inc_cov_composite(user_params,T)
     user_cov = user_cov_full[0:T]
@@ -333,7 +337,7 @@ graph_update = widgets.interactive(plot_moments,
                                    tran_var=tran_var_widget,
                                    half_life=half_life_widget,
                                    bonus=bonus_widget,
-                                   perm_decay=widgets.fixed(0.01),
+                                   perm_decay=widgets.fixed(0.0),
                                    compare=compare_widget,
                                    quantile=quantile_widget
 )

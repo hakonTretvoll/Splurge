@@ -3,7 +3,8 @@
 """
 import numpy as np
 from pathlib import Path
-from min_distance import parameter_estimation, parameter_estimation_by_subgroup, vech_indices
+from min_distance import parameter_estimation, parameter_estimation_by_subgroup
+from tools import vech_indices
 
 moments_BPP_dir = Path("../../Data/BPP_moments/") 
 
