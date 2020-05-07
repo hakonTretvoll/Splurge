@@ -88,21 +88,18 @@ def cov_omth_test(omega, theta):
           cov_2_T0 = expm1_th*(0.5 - 1/theta**2*( expm1mxm05x2_th + expm1mx_th*theta ))
           cov_2_T1 = expm1_th*np.exp(-theta)*(-0.5 +1/theta*( -expm1_th  +1/theta*(expm1mxm05x2_th + expm1mx_th*theta ) ))
           cov_2_Tinf = 0.0
-          cov_2 = cov_2_T0 + cov_2_T1 + cov_2_Tinf          
+          cov_2 = cov_2_T0 + cov_2_T1 + cov_2_Tinf  
+          #cov_M = np.exp(-(M-2.0)*theta)*cov2
+          # Covariance for moving the omega process up to T+1
+          cov_m1_T0 = -1.0/(expm1_th*theta)*( expm1mx_th - 1/theta*( expm1mxm05x2_th+ theta*expm1mx_th ))
+          cov_m1_T1 = 0.0
+          cov_m1_Tinf = 0.0
+          cov_m1 = cov_m1_T0 + cov_m1_T1 + cov_m1_Tinf
+          # Covariance for moving the omega process up to T+2
+          cov_m2 = 0.0
       elif (theta==0.0):
-          var_T0 = 999
-          var_T1 = 999
-          var_Tinf = 999
-          var = var_T0 + var_T1 + var_Tinf
-          
-          cov_1 = 999
-          cov_2 = 999
-      else:
-          omth = omega + theta
-          expm1mx_omth = expm1mx(-omth)
-
-          expm1mxm05x2_omth = expm1mxm05x2(-omth)
-          
+          return cov_omth_test(theta, omega)
+      else:        
           #variance at T
           var_T0 = 1.0/(expm1_om*expm1_th)*(              expm1mxm05x2_om/omega +              expm1mxm05x2_th/theta -                           expm1mxm05x2_omth/omth)
           var_T1 = 1.0/(expm1_om*expm1_th)*( (1-expm1_om)*expm1mxm05x2_om/omega + (1-expm1_th)*expm1mxm05x2_th/theta - (1-expm1_om)*(1-expm1_th)*expm1mxm05x2_omth/omth + (1-omth/2)*(expm1_om*expm1_th)  + omega*expm1_th/2 + theta*expm1_om/2)
@@ -118,7 +115,18 @@ def cov_omth_test(omega, theta):
           cov_2_T1 = -expm1_th/expm1_om * np.exp(-theta)* ( expm1mx_th/theta - (1-expm1_om)*expm1mx_omth/omth - expm1_om)
           cov_2_Tinf = np.exp(-2.0*theta)*expm1_om*expm1_th/omth
           cov_2 = cov_2_T0 + cov_2_T1 + cov_2_Tinf
-  return np.array([var, cov_1, cov_2])
+          
+          # Covariance for moving the omega process up to T+1
+          cov_m1_T0 = 1.0/(expm1_om*expm1_th)*( (1-expm1_om)*(  expm1mxm05x2_omth/omth - expm1mxm05x2_om/omega ) - expm1mxm05x2_th/theta - theta*expm1_om/2.0   )
+          cov_m1_T1  = -expm1_om/expm1_th*( -(1-expm1_th)*expm1mx_omth/omth - expm1_th + expm1mx_om/omega) 
+          cov_m1_Tinf = np.exp(-omega)*expm1_th*expm1_om/omth
+          cov_m1 = cov_m1_T0 + cov_m1_T1 + cov_m1_Tinf
+          # Covariance for moving the omega process up to T+2
+          cov_m2_T0 = -expm1_om/expm1_th * ( expm1mx_omth/omth - expm1mx_om/omega)
+          cov_m2_T1 = -expm1_om/expm1_th * np.exp(-omega)* ( expm1mx_om/omega - (1-expm1_th)*expm1mx_omth/omth - expm1_th)
+          cov_m2_Tinf = np.exp(-2.0*omega)*expm1_th*expm1_om/omth
+          cov_m2 = cov_m2_T0 + cov_m2_T1 + cov_m2_Tinf
+  return np.array([cov_m2, cov_m1, var, cov_1, cov_2])
 
 omega = 0.13
 theta = 0.09
