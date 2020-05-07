@@ -80,10 +80,15 @@ def cov_omth_test(omega, theta):
           var_Tinf = 0.0
           var = var_T0 + var_T1 + var_Tinf
           # Covariance for moving the theta process up to T+1
-          cov_1_T0 = -1/expm1_th *( -np.exp(-theta)/theta**2*(1-np.exp(-theta) - theta*np.exp(-theta)) -0.5)
-          cov_1_T1  = 999
+          cov_1_T0 = -1/expm1_th *( (1-expm1_th)/theta**2*(1-np.exp(-theta) - theta*np.exp(-theta)) -0.5)
+          cov_1_T1  = 0.5-(1-expm1_th)/(expm1_th*theta**2)*( - expm1mxm05x2_th - theta*expm1mx_th )
           cov_1_Tinf = 0.0
           cov_1 = cov_1_T0 + cov_1_T1 + cov_1_Tinf
+          # Covariance for moving the theta process up to T+2
+          cov_2_T0 = expm1_th*(0.5 - 1/theta**2*( expm1mxm05x2_th + expm1mx_th*theta ))
+          cov_2_T1 = expm1_th*np.exp(-theta)*(-0.5 +1/theta*( -expm1_th  +1/theta*(expm1mxm05x2_th + expm1mx_th*theta ) ))
+          cov_2_Tinf = 0.0
+          cov_2 = cov_2_T0 + cov_2_T1 + cov_2_Tinf          
       elif (theta==0.0):
           var_T0 = 999
           var_T1 = 999
