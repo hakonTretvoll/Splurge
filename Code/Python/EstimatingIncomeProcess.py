@@ -72,10 +72,10 @@ Omega_inc = Omega_all[income_moments,:][:,income_moments]
 
 # %% {"code_folding": [0]}
 # set up estimation: initial guess, which parameters to estimate, and bounds
-init_params = np.array([0.005,  #permanent variance
-                        0.003,  #transitory variance
-                        0.5,    #decay parameter of slightly persistant transitory shock
-                        0.5,   #fraction of transitory variance that has no persistence
+init_params = np.array([0.00809118,  #permanent variance
+                        0.00355567,  #transitory variance
+                        1.13118306,    #decay parameter of slightly persistant transitory shock
+                        0.57210194,   #fraction of transitory variance that has no persistence
                         0.0])  # decay parameter of perm shock
 optimize_index = np.array([True,  #permanent variance
                         True,  #transitory variance
@@ -84,7 +84,7 @@ optimize_index = np.array([True,  #permanent variance
                         False]) # decay parameter of perm shock (turned off for now)
 bounds     = [(0.000001,0.1),
               (0.000001,0.1),
-              (0.1,5.0),
+              (0.01,5.0),
               (0.0,1.0),
               (-0.1,0.1)]
 
@@ -122,6 +122,42 @@ for t in range(T):
 
 # %% {"code_folding": [0]}
 # Define plotting function
+
+def compare_to_moments(compare, quantile):
+    '''
+    Gets the relevant empirical data for comparison graph
+    '''
+    if (compare=="All Households"):
+        compare_moments_inc = empirical_moments_inc
+        compare_Omega_inc = Omega_inc
+        quantile_widget.options=['1']
+    else:
+        if (compare=="Liquid Wealth (quintiles)"):
+            subgroup_stub='moments_by_liquid_wealth_quantile'
+            quantile_widget.options=['1','2','3','4','5']
+        elif (compare=="Net Wealth (quintiles)"):
+            subgroup_stub='moments_by_net_wealth_quantile'
+            quantile_widget.options=['1','2','3','4','5']
+        elif (compare=="Income (deciles)"):
+            subgroup_stub='moments_by_Income_quantile'
+            quantile_widget.options=['1','2','3','4','5','6','7','8','9','10']
+        elif (compare=="Net Nominal Position (deciles)"):
+            subgroup_stub='moments_by_NNP_quantile'
+            quantile_widget.options=['1','2','3','4','5','6','7','8','9','10']
+        elif (compare=="Interest Rate Exposure (deciles)"):
+            subgroup_stub='moments_by_URE_quantile'
+            quantile_widget.options=['1','2','3','4','5','6','7','8','9','10']
+        elif (compare=="Consumption (deciles)"):
+            subgroup_stub='moments_by_MeanCons_quantile'
+            quantile_widget.options=['1','2','3','4','5','6','7','8','9','10']
+        compare_inc_name = subgroup_stub+str(quantile)+"c_vector.txt"
+        compare_moments_all = np.genfromtxt(Path(moments_BPP_dir,compare_inc_name), delimiter=',')
+        compare_moments_inc = compare_moments_all[income_moments]
+        compare_Omega_name = subgroup_stub+str(quantile)+"_Omega.txt"
+        compare_Omega_all =    np.genfromtxt(Path(moments_BPP_dir,compare_Omega_name), delimiter=',')
+        compare_Omega_inc = Omega_all[income_moments,:][:,income_moments]
+    return compare_moments_inc, compare_Omega_inc
+
 def plot_moments(perm_var,tran_var,half_life,bonus,perm_decay,compare="All Households",quantile=1):
     fig = plt.figure(figsize=(14, 9),constrained_layout=True)
     gs = fig.add_gridspec(2, 13)
@@ -178,10 +214,10 @@ def plot_moments(perm_var,tran_var,half_life,bonus,perm_decay,compare="All House
     panel1.set_ylim(np.array([-0.0025,0.0125]))
     panel2.set_ylim(np.array([-0.0013,0.0003]))
     panel4.set_ylim(np.array([0.0,0.02]))
-    #plot estimates
-    panel1.plot(implied_cov[0:3], color="red")
-    panel2.plot(implied_cov, color="red", label='Estimated')
-    panel4.plot(CS_Ndiff,implied_CS_moments/CS_moments_factor, color="red", label='Estimated')
+#    #plot estimates
+#    panel1.plot(implied_cov[0:3], color="red")
+#    panel2.plot(implied_cov, color="red", label='Estimated')
+#    panel4.plot(CS_Ndiff,implied_CS_moments/CS_moments_factor, color="red", label='Estimated')
     
     
     #plot user defined
@@ -205,38 +241,18 @@ def plot_moments(perm_var,tran_var,half_life,bonus,perm_decay,compare="All House
         panel4.plot(CS_Ndiff,CS_moments_mean/CS_moments_factor,label="Compare To",color='#1f77b4')
         quantile_widget.options=['1']
     else:
-        if (compare=="Liquid Wealth (quintiles)"):
-            subgroup_stub='moments_by_liquid_wealth_quantile'
-            quantile_widget.options=['1','2','3','4','5']
-        elif (compare=="Net Wealth (quintiles)"):
-            subgroup_stub='moments_by_net_wealth_quantile'
-            quantile_widget.options=['1','2','3','4','5']
-        elif (compare=="Income (deciles)"):
-            subgroup_stub='moments_by_Income_quantile'
-            quantile_widget.options=['1','2','3','4','5','6','7','8','9','10']
-        elif (compare=="Net Nominal Position (deciles)"):
-            subgroup_stub='moments_by_NNP_quantile'
-            quantile_widget.options=['1','2','3','4','5','6','7','8','9','10']
-        elif (compare=="Interest Rate Exposure (deciles)"):
-            subgroup_stub='moments_by_URE_quantile'
-            quantile_widget.options=['1','2','3','4','5','6','7','8','9','10']
-        elif (compare=="Consumption (deciles)"):
-            subgroup_stub='moments_by_MeanCons_quantile'
-            quantile_widget.options=['1','2','3','4','5','6','7','8','9','10']
-        subgroup_name = subgroup_stub+str(quantile)+"c_vector.txt"
-        empirical_moments_subgroup_all = np.genfromtxt(Path(moments_BPP_dir,subgroup_name), delimiter=',')
-        empirical_moments_subgroup_inc = empirical_moments_subgroup_all[income_moments]
-        CS_moments_subgroup = CS_from_BPP(empirical_moments_subgroup_inc)
-        mean_subgroup_moments = np.zeros(T)
-        CS_mean_subgroup_moments = np.zeros(T)
+        compare_moments_inc, compare_Omega_inc  = compare_to_moments(compare, quantile)
+        CS_moments_compare = CS_from_BPP(compare_moments_inc)
+        mean_compare_moments = np.zeros(T)
+        CS_mean_compare_moments = np.zeros(T)
         for t in range(T):
             this_diag = np.diag(1.0/(T-t)*np.ones(T-t),-t)
             this_diag = this_diag[vech_indicesT]
-            mean_subgroup_moments[t] = np.dot(this_diag,empirical_moments_subgroup_inc)
-            CS_mean_subgroup_moments[t] = np.dot(this_diag,CS_moments_subgroup)
-        panel1.plot(mean_subgroup_moments[0:3],color='#e377c2')
-        panel2.plot(mean_subgroup_moments,label="Compare To",color='#e377c2')
-        panel4.plot(CS_Ndiff,CS_mean_subgroup_moments/CS_moments_factor,label="Compare To",color='#e377c2')     
+            mean_compare_moments[t] = np.dot(this_diag,compare_moments_inc)
+            CS_mean_compare_moments[t] = np.dot(this_diag,CS_moments_compare)
+        panel1.plot(mean_compare_moments[0:3],color='#e377c2')
+        panel2.plot(mean_compare_moments,label="Compare To",color='#e377c2')
+        panel4.plot(CS_Ndiff,CS_mean_compare_moments/CS_moments_factor,label="Compare To",color='#e377c2')     
     panel2.legend(loc='lower right', prop={'size': 12})
     panel4.legend(loc='lower left', prop={'size': 12})
 
@@ -244,6 +260,8 @@ def plot_moments(perm_var,tran_var,half_life,bonus,perm_decay,compare="All House
 # %% {"code_folding": [0]}
 #set up widgets with default values for plot
 cont_update = False
+orientation = 'vertical'
+slider_height = 'auto'
 perm_var_widget = widgets.FloatSlider(
     value=estimates[0],
     min=0,
@@ -252,9 +270,10 @@ perm_var_widget = widgets.FloatSlider(
     description='Perm Var',
     disabled=False,
     continuous_update=cont_update,
-    orientation='horizontal',
+    orientation=orientation,
     readout=True,
     readout_format='.4f',
+    layout=widgets.Layout(height = slider_height, grid_area='perm_var')
 )
 tran_var_widget = widgets.FloatSlider(
     value=estimates[1],
@@ -264,21 +283,23 @@ tran_var_widget = widgets.FloatSlider(
     description='Tran Var',
     disabled=False,
     continuous_update=cont_update,
-    orientation='horizontal',
+    orientation=orientation,
     readout=True,
     readout_format='.4f',
+    layout=widgets.Layout(height = slider_height, grid_area='tran_var')
 )
 half_life_widget = widgets.FloatSlider(
     value=np.log(2)/estimates[2],
     min=0,
     max=5.0,
     step=0.1,
-    description='Tran Half Life',
+    description='Half Life',
     disabled=False,
     continuous_update=cont_update,
-    orientation='horizontal',
+    orientation=orientation,
     readout=True,
     readout_format='.1f',
+    layout=widgets.Layout(height = slider_height, grid_area='haf_life')
 )
 bonus_widget = widgets.FloatSlider(
     value=estimates[3],
@@ -288,30 +309,42 @@ bonus_widget = widgets.FloatSlider(
     description='Bonus',
     disabled=False,
     continuous_update=cont_update,
-    orientation='horizontal',
+    orientation=orientation,
     readout=True,
     readout_format='.2f',
+    layout=widgets.Layout(height = slider_height, grid_area='bonus___')
 )
 perm_decay_widget = widgets.FloatSlider(
-    value=estimates[4],
+    value=estimates[4].astype(bool),
     min=-0.1,
     max=0.1,
-    step=0.0003,
+    step=0.0001,
     description='Perm Decay',
     disabled=False,
     continuous_update=cont_update,
-    orientation='horizontal',
+    orientation=orientation,
     readout=True,
     readout_format='.4f',
+    layout=widgets.Layout(height = slider_height, grid_area='perm_dec')
 )
-reset_button = widgets.Button(description="Reset to estimated values",layout=widgets.Layout(width='80%', height='30px'))
-def reset_button_clicked(b):
+estimate_button = widgets.Button(description="Estimate!",
+                                 layout=widgets.Layout(width='70%', height='30px', grid_area='est_butt'),
+                                 justify_self = 'center')
+def estimate_button_clicked(b):
+    optimize_index = np.array([not fix_perm.value,not fix_tran.value,not fix_half_life.value,not fix_bonus.value,not fix_perm_decay.value])
+    init_params_with_fix = init_params
+    slider_values = np.array([perm_var_widget.value, tran_var_widget.value, np.log(2)/half_life_widget.value, bonus_widget.value, perm_decay_widget.value])
+    init_params_with_fix[np.logical_not(optimize_index)] = slider_values[np.logical_not(optimize_index)]
+    compare = compare_widget.value
+    quantile = quantile_widget.value
+    compare_moments_inc, compare_Omega_inc  = compare_to_moments(compare, quantile)
+    estimates, estimate_se = parameter_estimation(compare_moments_inc, compare_Omega_inc, T, init_params_with_fix, bounds=bounds, optimize_index=optimize_index)  
     perm_var_widget.value = estimates[0]
     tran_var_widget.value = estimates[1]
     half_life_widget.value = np.log(2)/estimates[2]
     bonus_widget.value = estimates[3]
     perm_decay_widget.value = estimates[4]
-reset_button.on_click(reset_button_clicked)
+estimate_button.on_click(estimate_button_clicked)
 
 compare_widget = widgets.Dropdown(
     options=['All Households',
@@ -324,6 +357,7 @@ compare_widget = widgets.Dropdown(
     value='All Households',
     description='Compare To',
     disabled=False,
+    layout=widgets.Layout(width='auto', height='auto', grid_area='comp_box')
 )
 quantiles = ['1']
 quantile_widget = widgets.Dropdown(
@@ -331,34 +365,128 @@ quantile_widget = widgets.Dropdown(
     value='1',
     description='Quantile',
     disabled=False,
+    layout=widgets.Layout(width='auto', height='auto', grid_area='quan_box')
 )
 graph_update = widgets.interactive(plot_moments,
                                    perm_var=perm_var_widget,
                                    tran_var=tran_var_widget,
                                    half_life=half_life_widget,
                                    bonus=bonus_widget,
-                                   perm_decay=widgets.fixed(0.0),
+                                   perm_decay=perm_decay_widget,
                                    compare=compare_widget,
                                    quantile=quantile_widget
 )
-control_widget=widgets.TwoByTwoLayout(
-          bottom_left=reset_button,
-          top_right=compare_widget,
-          bottom_right=quantile_widget
+# control_widget=widgets.TwoByTwoLayout(
+#           bottom_left=estimate_button,
+#           top_right=compare_widget,
+#           bottom_right=quantile_widget
+# )
+# slider_widget=widgets.TwoByTwoLayout(
+#           top_left=perm_var_widget,
+#           top_right=tran_var_widget,
+#           bottom_left = half_life_widget,
+#           bottom_right=bonus_widget
+# )
+fix_perm = widgets.Checkbox(
+    value=False,#optimize_index[4],
+    description='',
+    disabled=False,
+    indent=False,
+    layout=widgets.Layout(width='auto', height='auto')
 )
-slider_widget=widgets.TwoByTwoLayout(
-          top_left=perm_var_widget,
-          top_right=tran_var_widget,
-          bottom_left = half_life_widget,
-          bottom_right=bonus_widget
+fix_perm_box = widgets.HBox(children=[fix_perm],layout=widgets.Layout(display='flex',
+                flex_flow='column',
+                align_items='center',
+                width='100%',
+                grid_area = 'fix_perm'))
+fix_tran = widgets.Checkbox(
+    value=False,#optimize_index[4],
+    description='',
+    disabled=False,
+    indent=False,
+    layout=widgets.Layout(width='auto', height='auto')
 )
+fix_tran_box = widgets.HBox(children=[fix_tran],layout=widgets.Layout(display='flex',
+                flex_flow='column',
+                align_items='center',
+                width='100%',
+                grid_area = 'fix_tran'))
+fix_half_life = widgets.Checkbox(
+    value=False,#optimize_index[4],
+    description='',
+    disabled=False,
+    indent=False,
+    layout=widgets.Layout(width='auto', height='auto')
+)
+fix_half_life_box = widgets.HBox(children=[fix_half_life],layout=widgets.Layout(display='flex',
+                flex_flow='column',
+                align_items='center',
+                width='100%',
+                grid_area = 'fix_half'))
+fix_bonus = widgets.Checkbox(
+    value=False,#optimize_index[4],
+    description='',
+    disabled=False,
+    indent=False,
+    layout=widgets.Layout(width='auto', height='auto')
+)
+fix_bonus_box = widgets.HBox(children=[fix_bonus],layout=widgets.Layout(display='flex',
+                flex_flow='column',
+                align_items='center',
+                width='100%',
+                grid_area = 'fix_bonu'))
+fix_perm_decay = widgets.Checkbox(
+    value=True,#optimize_index[4],
+    description='',
+    disabled=False,
+    indent=False,
+    layout=widgets.Layout(width='auto', height='auto')
+)
+fix_perm_decay_box = widgets.HBox(children=[fix_perm_decay],layout=widgets.Layout(display='flex',
+                flex_flow='column',
+                align_items='center',
+                width='100%',
+                grid_area = 'fix_pdec'))
 
-# %% {"code_folding": [0]}
-# Plot BPP and Carroll Samwick moments, with estimates and user-defined parameters
-display( slider_widget )
-display(control_widget)
-graph_update.update()
-graph_update.children[6]
+button_box_layout = widgets.Layout(display='flex',
+                flex_flow='column',
+                align_items='center',
+                width='100%',
+                grid_area = 'esti_box')
+estimate_box = widgets.HBox(children=[estimate_button],layout=button_box_layout)
+
+empty  = widgets.Button(description='',
+                 layout=widgets.Layout(width='auto', grid_area='empty___'),
+                 style=widgets.ButtonStyle(button_color='white'))
+Fix  = widgets.Button(description='Fix?',
+                 layout=widgets.Layout(width='auto', grid_area='fix_____', align_content='flex-end'),
+                 style=widgets.ButtonStyle(button_color='white'))
+
+control_panel = widgets.GridBox(children=[empty,
+                          compare_widget,
+                          quantile_widget,
+                          estimate_box,
+                          perm_var_widget,
+                          tran_var_widget,
+                          half_life_widget,
+                          bonus_widget,
+                          perm_decay_widget,
+                          Fix,
+                          fix_perm_box,
+                          fix_tran_box,
+                          fix_half_life_box,
+                          fix_bonus_box,
+                          fix_perm_decay_box],
+        layout=widgets.Layout(
+            width='90%',
+            grid_template_rows='auto auto auto',
+            grid_template_columns='35% 10% 10% 10% 10% 10% 10%',
+            grid_template_areas='''
+            "comp_box fix_____ fix_perm fix_tran fix_half fix_bonu fix_pdec"
+            "quan_box empty___ perm_var tran_var haf_life bonus___ perm_dec"
+            "esti_box empty___ perm_var tran_var haf_life bonus___ perm_dec"
+            ''')
+       )
 
 
 # %% {"code_folding": [0]}
@@ -420,6 +548,16 @@ subgroup_widget = widgets.Dropdown(
 
 
 # %% {"code_folding": [0]}
+# Plot BPP and Carroll Samwick moments, with estimates and user-defined parameters
+# display(control_widget)
+# display( slider_widget )
+display(control_panel)
+graph_update.update()
+graph_update.children[7]
+
+# %% {"code_folding": [0]}
 # Plot parameter estimates by selected quantiles
 widgets.interact(plot_by_subgroup,subgroup_stub=subgroup_widget, T=widgets.fixed(T), init_params=widgets.fixed(init_params), optimize_index=widgets.fixed(optimize_index), bounds=widgets.fixed(bounds));
 
+
+# %%
