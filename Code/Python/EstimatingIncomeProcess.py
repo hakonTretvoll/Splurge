@@ -53,7 +53,7 @@ import ipywidgets as widgets
 from min_distance import parameter_estimation, parameter_estimation_by_subgroup, vech_indices, implied_inc_cov_composite
 
 
-# %% {"code_folding": []}
+# %% {"code_folding": [0]}
 # Load empirical moments and variance matrix
 moments_BPP_dir = Path("../../Data/BPP_moments/") 
 empirical_moments_all = np.genfromtxt(Path(moments_BPP_dir,"moments_all_c_vector.txt"), delimiter=',')
@@ -89,7 +89,7 @@ bounds     = [(0.000001,0.1),
               (-0.1,0.1)]
 
 
-# %% {"code_folding": []}
+# %% {"code_folding": [0]}
 # Estimate parameters and calculate mean of moments over years
 estimates, estimate_se = parameter_estimation(empirical_moments_inc, Omega_inc, T, init_params, bounds=bounds, optimize_index=optimize_index)  
 implied_cov_full = implied_inc_cov_composite(estimates,T)
@@ -120,7 +120,7 @@ for t in range(T):
     CS_moments_mean[t] = np.dot(this_diag,CS_moments)
 
 
-# %% {"code_folding": []}
+# %% {"code_folding": [0]}
 # Define plotting function
 
 def compare_to_moments(compare, quantile):
@@ -573,5 +573,23 @@ graph_update.children[7]
 # Plot parameter estimates by selected quantiles
 widgets.interact(plot_by_subgroup,subgroup_stub=subgroup_widget, T=widgets.fixed(T), init_params=widgets.fixed(init_params), optimize_index=widgets.fixed(optimize_index), bounds=widgets.fixed(bounds));
 
+
+# %% [markdown]
+# To Do:
+#
+# Documentation and pedagogical description of what is going on
+#
+# Add PSID data
+#
+# Add Norwegian data
+#
+# Allow variance (and other parameters?) to vary over time
+#
+# Allow for user-defined shape of transitory shock
+#
+# Allow for user-defined intensity of permanent and transitory shocks over the year
+#
+# Do consumption response!
+#
 
 # %%
