@@ -53,7 +53,7 @@ import ipywidgets as widgets
 from min_distance import parameter_estimation, parameter_estimation_by_subgroup, vech_indices, implied_inc_cov_composite
 
 
-# %% {"code_folding": [0]}
+# %% {"code_folding": []}
 # Load empirical moments and variance matrix
 moments_BPP_dir = Path("../../Data/BPP_moments/") 
 empirical_moments_all = np.genfromtxt(Path(moments_BPP_dir,"moments_all_c_vector.txt"), delimiter=',')
@@ -89,7 +89,7 @@ bounds     = [(0.000001,0.1),
               (-0.1,0.1)]
 
 
-# %% {"code_folding": [0]}
+# %% {"code_folding": []}
 # Estimate parameters and calculate mean of moments over years
 estimates, estimate_se = parameter_estimation(empirical_moments_inc, Omega_inc, T, init_params, bounds=bounds, optimize_index=optimize_index)  
 implied_cov_full = implied_inc_cov_composite(estimates,T)
@@ -120,7 +120,7 @@ for t in range(T):
     CS_moments_mean[t] = np.dot(this_diag,CS_moments)
 
 
-# %% {"code_folding": [0]}
+# %% {"code_folding": []}
 # Define plotting function
 
 def compare_to_moments(compare, quantile):
@@ -167,11 +167,11 @@ def plot_moments(perm_var,tran_var,half_life,bonus,perm_decay,compare="All House
     panel4 = fig.add_subplot(gs[1, 1:-2])
     
     panel1.plot(mean_moments[0:3], marker='o')
-    panel2.plot(mean_moments, marker='o',label="Mean over all years")
+    panel2.plot(mean_moments, marker='o',label="All Households Mean")
     CS_Ndiff = np.array(range(T))+1.0
     CS_moments_factor = (CS_Ndiff-1.0/3.0)
     #panel3.plot(CS_Ndiff[0:3],CS_moments_mean[0:3]/CS_moments_factor[0:3], marker='o')
-    panel4.plot(CS_Ndiff,CS_moments_mean/CS_moments_factor, marker='o',label="Mean over all years")
+    panel4.plot(CS_Ndiff,CS_moments_mean/CS_moments_factor, marker='o',label="All Households Mean")
     # Standard errors
     panel1.plot(mean_moments[0:3]+1.96*mean_moments_se[0:3],linestyle="--",color="gray",linewidth=1.0)
     panel1.plot(mean_moments[0:3]-1.96*mean_moments_se[0:3],linestyle="--",color="gray",linewidth=1.0)
@@ -182,8 +182,7 @@ def plot_moments(perm_var,tran_var,half_life,bonus,perm_decay,compare="All House
     panel1.plot(empirical_moments_inc[0:3], marker='x',linewidth=0,color='#1f77b4')
     panel2.plot(np.array(range(T)),empirical_moments_inc[0:T], marker='x',linewidth=0,label="Individual years",color='#1f77b4')
     #panel3.plot(CS_Ndiff[0:3],CS_moments[0:3]/CS_moments_factor[0:3], marker='x',linewidth=0,color='#1f77b4')
-    panel4.plot(CS_Ndiff[0:T],CS_moments[0:T]/CS_moments_factor, marker='x',linewidth=0,label="Individual years",color='#1f77b4')
-    
+    panel4.plot(CS_Ndiff[0:T],CS_moments[0:T]/CS_moments_factor, marker='x',linewidth=0,label="Individual years",color='#1f77b4') 
     i = T
     for t in np.array(range(T-1))+1:
         panel1.plot(empirical_moments_inc[i:min(i+T-t,i+3)], marker='x',linewidth=0,color='#1f77b4')
@@ -206,20 +205,6 @@ def plot_moments(perm_var,tran_var,half_life,bonus,perm_decay,compare="All House
     #panel3.set_ylabel("Variance", fontsize=15)
     panel4.set_ylabel("Var$(\Delta^n y)/(n-1/3)$", fontsize=15)
     
-    panel1.axhline(y=0, color='k',linewidth=1.0)
-    panel2.axhline(y=0, color='k',linewidth=1.0)
-    #panel3.axhline(y=0, color='k',linewidth=1.0)
-    panel4.axhline(y=0, color='k',linewidth=1.0)
-    
-    panel1.set_ylim(np.array([-0.0025,0.0125]))
-    panel2.set_ylim(np.array([-0.0013,0.0003]))
-    panel4.set_ylim(np.array([0.0,0.02]))
-#    #plot estimates
-#    panel1.plot(implied_cov[0:3], color="red")
-#    panel2.plot(implied_cov, color="red", label='Estimated')
-#    panel4.plot(CS_Ndiff,implied_CS_moments/CS_moments_factor, color="red", label='Estimated')
-    
-    
     #plot user defined
     if (half_life!=0.0):
         omega = np.log(2)/half_life
@@ -236,25 +221,54 @@ def plot_moments(perm_var,tran_var,half_life,bonus,perm_decay,compare="All House
     panel4.plot(CS_Ndiff,user_CS_moments/CS_moments_factor, color="orange", label='User')
     #comparison graph
     if (compare=="All Households"):
-        panel1.plot(mean_moments[0:3],color='#1f77b4')
-        panel2.plot(mean_moments,label="Compare To",color='#1f77b4')
-        panel4.plot(CS_Ndiff,CS_moments_mean/CS_moments_factor,label="Compare To",color='#1f77b4')
+        mean_compare_moments = mean_moments
+        CS_mean_compare_moments = CS_moments_mean
+        panel1.plot(mean_moments[0:3],color='#1f77b4', marker='o')
+        panel2.plot(mean_moments,label="Compare To",color='#1f77b4', marker='o')
+        panel4.plot(CS_Ndiff,CS_moments_mean/CS_moments_factor,label="Compare To",color='#1f77b4', marker='o')
+        panel2.plot(empirical_moments_inc[0:T],color='#1f77b4', linewidth=0, label=' ')
+        panel4.plot(CS_Ndiff,CS_moments[0:T]/CS_moments_factor, linewidth=0,color='#1f77b4', label=' ')
         quantile_widget.options=['1']
     else:
         compare_moments_inc, compare_Omega_inc  = compare_to_moments(compare, quantile)
         CS_moments_compare = CS_from_BPP(compare_moments_inc)
         mean_compare_moments = np.zeros(T)
+        mean_compare_moments_se = np.zeros(T)
         CS_mean_compare_moments = np.zeros(T)
         for t in range(T):
             this_diag = np.diag(1.0/(T-t)*np.ones(T-t),-t)
             this_diag = this_diag[vech_indicesT]
             mean_compare_moments[t] = np.dot(this_diag,compare_moments_inc)
+            mean_compare_moments_se[t] = np.dot(np.dot(this_diag,compare_Omega_inc),this_diag)**0.5
             CS_mean_compare_moments[t] = np.dot(this_diag,CS_moments_compare)
-        panel1.plot(mean_compare_moments[0:3],color='#e377c2')
-        panel2.plot(mean_compare_moments,label="Compare To",color='#e377c2')
-        panel4.plot(CS_Ndiff,CS_mean_compare_moments/CS_moments_factor,label="Compare To",color='#e377c2')     
-    panel2.legend(loc='lower right', prop={'size': 12})
-    panel4.legend(loc='lower left', prop={'size': 12})
+        panel1.plot(mean_compare_moments[0:3],color='#e377c2',marker='o')
+        panel2.plot(mean_compare_moments,label="Compare To",color='#e377c2',marker='o')
+        panel4.plot(CS_Ndiff,CS_mean_compare_moments/CS_moments_factor,label="Compare To",color='#e377c2',marker='o')
+        #plot the moments for each year
+        panel1.plot(compare_moments_inc[0:3], marker='x',linewidth=0,color='#e377c2')
+        panel2.plot(np.array(range(T)),compare_moments_inc[0:T], marker='x',linewidth=0,label="Individual years",color='#e377c2')
+        panel4.plot(CS_Ndiff[0:T],CS_moments_compare[0:T]/CS_moments_factor, marker='x',linewidth=0,label="Individual years",color='#e377c2')
+        i = T
+        for t in np.array(range(T-1))+1:
+            panel1.plot(compare_moments_inc[i:min(i+T-t,i+3)], marker='x',linewidth=0,color='#e377c2')
+            panel2.plot(np.array(range(T-t)),compare_moments_inc[i:i+T-t], marker='x',linewidth=0,color='#e377c2')
+            panel4.plot(CS_Ndiff[0:T-t],CS_moments_compare[i:i+T-t]/CS_moments_factor[0:T-t], marker='x',linewidth=0,color='#e377c2')
+            i += T-t
+            # Standard errors
+        panel1.plot(mean_compare_moments[0:3]+1.96*mean_compare_moments_se[0:3],linestyle="--",color="gray",linewidth=1.0)
+        panel1.plot(mean_compare_moments[0:3]-1.96*mean_compare_moments_se[0:3],linestyle="--",color="gray",linewidth=1.0)
+        panel2.plot(mean_compare_moments+1.96*mean_compare_moments_se,linestyle="--",color="gray",linewidth=1.0)
+        panel2.plot(mean_compare_moments-1.96*mean_compare_moments_se,linestyle="--",color="gray",linewidth=1.0)
+    panel2.legend(loc='lower right', prop={'size': 12}, ncol=2, frameon=False)
+    panel4.legend(loc='lower left', prop={'size': 12}, ncol=2, frameon=False)
+    panel1.axhline(y=0, color='k',linewidth=1.0)
+    panel2.axhline(y=0, color='k',linewidth=1.0)
+    #panel3.axhline(y=0, color='k',linewidth=1.0)
+    panel4.axhline(y=0, color='k',linewidth=1.0)
+    
+    panel1.set_ylim(np.array([-0.0025,np.max(np.array([0.0125,1.1*mean_compare_moments[0]]))]))
+    panel2.set_ylim(np.array([np.min(np.array([-0.0013,1.1*mean_compare_moments[1]])),0.0003]))
+    panel4.set_ylim(np.array([0.0,np.max(np.array([0.02,1.1*CS_mean_compare_moments[0]/CS_moments_factor[0]]))]))
 
 
 # %% {"code_folding": [0]}
