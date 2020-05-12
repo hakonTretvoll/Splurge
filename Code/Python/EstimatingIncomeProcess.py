@@ -86,7 +86,7 @@ bounds     = [(0.000001,0.1),
               (0.000001,0.1),
               (0.01,5.0),
               (0.0,1.0),
-              (-0.1,0.1)]
+              (0.0,0.1)]
 
 
 # %% {"code_folding": [0]}
@@ -330,7 +330,7 @@ bonus_widget = widgets.FloatSlider(
 )
 perm_decay_widget = widgets.FloatSlider(
     value=estimates[4].astype(bool),
-    min=-0.1,
+    min=0.0,
     max=0.1,
     step=0.0001,
     description='Perm Decay',
