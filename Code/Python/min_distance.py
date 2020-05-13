@@ -205,7 +205,7 @@ def impact_matrix_perm(var_perm, T, num_months=12, var_weights = None):
             impact_matrix[year+1,k] += (var_weights[month]*var_perm[year+1])**0.5 * (k-(year+1)*num_months)/(1.0*num_months)
     return impact_matrix
 
-def implied_inc_cov_composite(params,T):
+def implied_inc_cov_composite_continuous(params,T):
     var_perm = params[0]
     var_tran = params[1]
     omega    = params[2]
@@ -217,8 +217,25 @@ def implied_inc_cov_composite(params,T):
         perm_inc_cov = implied_cov_expdecayshk_continuous(var_perm,rho,T)
     bonus_inc_cov = implied_cov_bonusshk_continuous(var_tran*bonus,T)
     trandecay_inc_cov = implied_cov_expdecayshk_continuous(var_tran*(1-bonus),omega,T)
-#    impact_tran = impact_matrix_tran(var_tran*(1-bonus),omega,T,num_months=5,pre_periods=10)
-#    tran_inc_cov = implied_inc_cov_discrete(impact_tran, T, num_months=12)
+    implied_inc_cov_composite = perm_inc_cov + bonus_inc_cov + trandecay_inc_cov
+    return implied_inc_cov_composite
+
+def implied_inc_cov_composite_discrete(params,T):
+    var_perm = params[0]
+    var_tran = params[1]
+    omega    = params[2]
+    bonus    = params[3]
+    impact_tran = impact_matrix_tran(var_tran*(1-bonus),omega,T)
+    trandecay_inc_cov = implied_inc_cov_discrete(impact_tran)
+    impact_bonus = impact_matrix_bonus(var_tran*bonus,T)
+    bonus_inc_cov = implied_inc_cov_discrete(impact_bonus)
+    impact_perm = impact_matrix_perm(var_perm,T)
+    perm_inc_cov = implied_inc_cov_discrete(impact_perm)
+    
+#    perm_inc_cov = implied_cov_permshk_continuous(var_perm,T)
+#    bonus_inc_cov = implied_cov_bonusshk_continuous(var_tran*bonus,T)
+#    trandecay_inc_cov = implied_cov_expdecayshk_continuous(var_tran*(1-bonus),omega,T)
+    
     implied_inc_cov_composite = perm_inc_cov + bonus_inc_cov + trandecay_inc_cov
     return implied_inc_cov_composite
 
@@ -245,7 +262,7 @@ def parameter_estimation(empirical_moments, Omega, T, init_params, optimize_inde
     params = np.zeros(len(optimize_index))
     params[optimize_index] = optimize_params
     params[np.logical_not(optimize_index)] = fixed_params
-    model_cov = implied_inc_cov_composite(params, T)
+    model_cov = implied_inc_cov_composite_continuous(params, T)
     return model_cov
   def objectiveFun(optimize_params, T, empirical_cov, weight_matrix, optimize_index, fixed_params):
     model_cov = implied_cov_limited_params(optimize_params, T, optimize_index, fixed_params)
@@ -257,11 +274,11 @@ def parameter_estimation(empirical_moments, Omega, T, init_params, optimize_inde
   #ret = objectiveFun(optimize_params, T, empirical_moments, weight_matrix,optimize_index, fixed_params)
   
   # Do minimization
-  solved_objective = minimize(objectiveFun, optimize_params, args=(T, empirical_moments, weight_matrix, optimize_index, fixed_params), method='L-BFGS-B', bounds=bounds, options= {'disp': True})
+  solved_objective = minimize(objectiveFun, optimize_params, args=(T, empirical_moments, weight_matrix, optimize_index, fixed_params), method='L-BFGS-B', bounds=bounds, options= {'disp': 1})
   solved_params = solved_objective.x
   # Calculate standard errors
   fun_for_jacob = lambda params: implied_cov_limited_params(params, T, optimize_index, fixed_params)
-  jacob = nd.Jacobian(fun_for_jacob)(solved_params)
+  jacob = nd.Jacobian(fun_for_jacob,step=0.00001)(solved_params)
   Sandwich1 = inv(np.dot(np.transpose(jacob),np.dot(weight_matrix,jacob)))
   Sandwich2 = np.dot(np.transpose(jacob),np.dot(weight_matrix,np.dot(Omega,np.dot(weight_matrix,jacob))))
   cov_params = np.dot(Sandwich1,np.dot(Sandwich2,Sandwich1))

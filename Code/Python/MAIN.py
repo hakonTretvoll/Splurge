@@ -35,19 +35,19 @@ optimize_index = np.array([True,  #permanent variance
 bounds     = [(0.000001,0.1),
               (0.000001,0.1),
               (0.1,5.0),
-              (0.0,1.0),
+              (0.0,0.9999),     #currently the L-BFGS-B solving mechanism calculates numerical derivatives by adding epsilon at the bound, so we bound below one. This has been fixed in scipy but not yet released (as of scipy 1.4.1)
               (0.0,0.1)]
 
 # Do estimation
 estimates, estimate_se = parameter_estimation(empirical_moments_inc, Omega_inc, T, init_params, bounds=bounds, optimize_index=optimize_index)
 
-subgroup_stub = "moments_by_liquid_wealth_quantile"
-num_quantiles = 5
-subgroup_names = []
-for i in range(num_quantiles):
-    subgroup_names += ["X"+str(i+1)]
-
-
-liquid_wealth_estimates, liquid_wealth_se = parameter_estimation_by_subgroup(moments_BPP_dir,subgroup_stub,subgroup_names, T, init_params, optimize_index=optimize_index, bounds=bounds)
-
+#subgroup_stub = "moments_by_liquid_wealth_quantile"
+#num_quantiles = 5
+#subgroup_names = []
+#for i in range(num_quantiles):
+#    subgroup_names += ["X"+str(i+1)]
+#
+#
+#liquid_wealth_estimates, liquid_wealth_se = parameter_estimation_by_subgroup(moments_BPP_dir,subgroup_stub,subgroup_names, T, init_params, optimize_index=optimize_index, bounds=bounds)
+#
 
