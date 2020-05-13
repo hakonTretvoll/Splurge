@@ -74,9 +74,9 @@ def implied_cov_expdecayshk_continuous(var_expdecayshk, omega, T):
   cov_y_vec=cov_y[vech_indicesT]
   return cov_y_vec
 
-def implied_inc_cov_discrete(impact_matrix):
+def implied_inc_cov_monthly(impact_matrix):
     '''
-    Calculates the covariance matrix for discrete process defined by
+    Calculates the covariance matrix for discrete monthly process defined by
     the "impact_matrix"
     '''
     T = impact_matrix.shape[0]
@@ -128,7 +128,7 @@ def impact_matrix_bonus(var_bonus, T, num_months=12, var_weights = None):
 
 def impact_matrix_tran(var_tran, omega, T, num_months=12, pre_periods=10, var_weights = None):
     '''
-      Calculates the "impact matrix" for a purely transitory (bonus) shock
+      Calculates the "impact matrix" for an exponentially decaying shock shock
       Each row is a year [0, 1,..., T] 
       Each column is a 'month' in each year [0,1,...,11,...,12*(T+1)-1]
       Each element represents the income *change* in that row (year) from a shock that 
@@ -162,7 +162,7 @@ def impact_matrix_tran(var_tran, omega, T, num_months=12, pre_periods=10, var_we
     impact_matrix = np.zeros((T,K))
     for k in range(K):
         month = k%num_months # this is the modulo operator
-        year_shock = max(0, np.floor(k/(num_months*1.0)).astype(int) - pre_periods) #var_tran is fixed at the year zero value for all the pre-periods
+        year_shock = max(0, np.floor(k/(num_months*1.0)).astype(int) - pre_periods) #var_tran is fixed at the year -1 value for all the pre-periods
         for i in range(K-k):
             year = np.floor((k+i)/(num_months*1.0)).astype(int) -1 - pre_periods
             if year>=0:
@@ -205,6 +205,51 @@ def impact_matrix_perm(var_perm, T, num_months=12, var_weights = None):
             impact_matrix[year+1,k] += (var_weights[month]*var_perm[year+1])**0.5 * (k-(year+1)*num_months)/(1.0*num_months)
     return impact_matrix
 
+def impact_matrix_MA1(var_tran, omega, T, num_months=12, var_weights = None):
+    '''
+      Calculates the "impact matrix" for a "MA1" shock - in fact a shock in
+      which income takes one value for 12 months, and then omega times that
+      value for the second month. Replicates an MA1 process if all the shocks
+      happen in the first month.
+      Each row is a year [0, 1,..., T] 
+      Each column is a 'month' in each year [0,1,...,11,...,12*(T+1)-1]
+      Each element represents the income *change* in that row (year) from a shock that 
+      occurs in the column (month-year).
+    '''
+    if var_weights is None:
+        var_weights = np.array([1.0/num_months]*num_months)
+    if len(var_weights)!=num_months:
+        return "var_weight must be the same length as there are num_months"
+    var_weights = var_weights/np.sum(var_weights)  # Normalize
+    
+    if isinstance(var_tran, (np.floating, float)):
+        var_tran = var_tran*np.ones(T+1)
+    elif len(var_tran)!=T+1:
+        return "var_tran must be a float or array of length T+1"
+    if isinstance(omega, (np.floating, float)):
+        omega = omega*np.ones(T+1)
+    elif len(omega)!=T+1:
+        return "omega must be a float or array of length T+1"
+    
+    K = (T+3)*num_months
+    impact_matrix = np.zeros((T,K))
+    for k in range(K):
+        month = k%num_months # this is the modulo operator
+        year_shock = max(0, np.floor(k/(num_months*1.0)).astype(int) - 3) #var_tran is fixed at the year -1 value for all the pre-periods
+        year = np.floor(k/(num_months*1.0)).astype(int)-3  # start with shocks that happen in year -1, as these impact the change in income in period 0 (negaitively)
+        month = k%num_months # this is the modulo operator
+        if year>=0:
+            impact_matrix[year,k]   +=  (var_weights[month]*var_tran[year_shock])**0.5 * (num_months-month)/(1.0*num_months)
+        if year>=-1 and year<=T-2:
+            impact_matrix[year+1,k] +=  (var_weights[month]*var_tran[year_shock])**0.5 *(2*month-num_months)/(1.0*num_months)
+            impact_matrix[year+1,k] +=  omega[year_shock] * (var_weights[month]*var_tran[year_shock])**0.5 *(num_months-month)/(1.0*num_months)
+        if year>=-2 and year<=T-3:
+            impact_matrix[year+2,k] +=  omega[year_shock] * (var_weights[month]*var_tran[year_shock])**0.5 *(2*month-num_months)/(1.0*num_months)
+            impact_matrix[year+2,k] +=  -(var_weights[month]*var_tran[year_shock])**0.5 *month/(1.0*num_months)
+        if year<=T-4:
+            impact_matrix[year+3,k] +=  -omega[year_shock] * (var_weights[month]*var_tran[year_shock])**0.5 *month/(1.0*num_months)
+    return impact_matrix
+
 def implied_inc_cov_composite_continuous(params,T):
     var_perm = params[0]
     var_tran = params[1]
@@ -220,17 +265,17 @@ def implied_inc_cov_composite_continuous(params,T):
     implied_inc_cov_composite = perm_inc_cov + bonus_inc_cov + trandecay_inc_cov
     return implied_inc_cov_composite
 
-def implied_inc_cov_composite_discrete(params,T):
+def implied_inc_cov_composite_monthly(params,T):
     var_perm = params[0]
     var_tran = params[1]
     omega    = params[2]
     bonus    = params[3]
     impact_tran = impact_matrix_tran(var_tran*(1-bonus),omega,T)
-    trandecay_inc_cov = implied_inc_cov_discrete(impact_tran)
+    trandecay_inc_cov = implied_inc_cov_monthly(impact_tran)
     impact_bonus = impact_matrix_bonus(var_tran*bonus,T)
-    bonus_inc_cov = implied_inc_cov_discrete(impact_bonus)
+    bonus_inc_cov = implied_inc_cov_monthly(impact_bonus)
     impact_perm = impact_matrix_perm(var_perm,T)
-    perm_inc_cov = implied_inc_cov_discrete(impact_perm)
+    perm_inc_cov = implied_inc_cov_monthly(impact_perm)
     
 #    perm_inc_cov = implied_cov_permshk_continuous(var_perm,T)
 #    bonus_inc_cov = implied_cov_bonusshk_continuous(var_tran*bonus,T)
