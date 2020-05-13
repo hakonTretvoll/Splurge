@@ -50,7 +50,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from pathlib import Path
 import ipywidgets as widgets
-from min_distance import parameter_estimation, parameter_estimation_by_subgroup, vech_indices, implied_inc_cov_composite
+from min_distance import parameter_estimation, parameter_estimation_by_subgroup, vech_indices, implied_inc_cov_composite_continuous
 
 
 # %% {"code_folding": [0]}
@@ -92,7 +92,7 @@ bounds     = [(0.000001,0.1),
 # %% {"code_folding": [0]}
 # Estimate parameters and calculate mean of moments over years
 estimates, estimate_se = parameter_estimation(empirical_moments_inc, Omega_inc, T, init_params, bounds=bounds, optimize_index=optimize_index)  
-implied_cov_full = implied_inc_cov_composite(estimates,T)
+implied_cov_full = implied_inc_cov_composite_continuous(estimates,T)
 implied_cov = implied_cov_full[0:T]
 # Get Carroll Samwick moments (just appropriate sum of BPP moments)
 vech_indicesT = vech_indices(T)
@@ -212,7 +212,7 @@ def plot_moments(perm_var,tran_var,half_life,bonus,perm_decay,compare="All House
         omega = 1.0 # use dummy value for omega, and replace with a 'bonus' type shock instead - this is equivalent to zero half life
         bonus = 1.0
     user_params = np.array([perm_var,tran_var,omega,bonus,perm_decay])
-    user_cov_full = implied_inc_cov_composite(user_params,T)
+    user_cov_full = implied_inc_cov_composite_continuous(user_params,T)
     user_cov = user_cov_full[0:T]
     user_CS_moments = CS_from_BPP(user_cov_full)[0:T]   
     
@@ -569,7 +569,7 @@ display(control_panel)
 graph_update.update()
 graph_update.children[7]
 
-# %% {"code_folding": [0]}
+# %% {"code_folding": []}
 # Plot parameter estimates by selected quantiles
 widgets.interact(plot_by_subgroup,subgroup_stub=subgroup_widget, T=widgets.fixed(T), init_params=widgets.fixed(init_params), optimize_index=widgets.fixed(optimize_index), bounds=widgets.fixed(bounds));
 
