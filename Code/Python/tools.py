@@ -66,6 +66,7 @@ def cov_omega_theta(omega, theta):
       expm1mxm05x2_om   = expm1mxm05x2(-omega)
       expm1mxm05x2_th   = expm1mxm05x2(-theta)
       omth = omega + theta
+      expm1_omth   = np.expm1(-omth)
       expm1mx_omth = expm1mx(-omth)
       expm1mxm05x2_omth = expm1mxm05x2(-omth)
       if (omega==0.0):
@@ -92,13 +93,19 @@ def cov_omega_theta(omega, theta):
           cov_m1 = cov_m1_T0 + cov_m1_T1 + cov_m1_Tinf
           # Covariance for moving the omega process up to T+2
           cov_m2 = 0.0
+          components = np.array([[0.0,0.0,0.0,0.0],
+                                 [cov_m1_T0,cov_m1_T1,0.0,0.0],
+                                 [cov_0_T0, cov_0_T1 ,0.0,0.0],
+                                 [cov_1_T0, cov_1_T1 ,0.0,0.0],
+                                 [cov_2_T0, cov_2_T1 ,0.0,0.0]])
       elif (theta==0.0):
-          reverse_return = cov_omega_theta(theta, omega) # Note the self-call, be carefull!!
+          reverse_return, reverse_componets = cov_omega_theta(theta, omega) # Note the self-call, be carefull!!
           cov_0 = reverse_return[2]
           cov_1 = reverse_return[1]
           cov_2 = reverse_return[0]
           cov_m1 = reverse_return[3]
           cov_m2 = reverse_return[4]
+          components = np.array([reverse_componets[4,:],reverse_componets[3,:],reverse_componets[2,:],reverse_componets[1,:],reverse_componets[0,:]])
       else:        
           #covariance at T
           cov_0_T0 = 1.0/(expm1_om*expm1_th)*(              expm1mxm05x2_om/omega +              expm1mxm05x2_th/theta -                           expm1mxm05x2_omth/omth)
@@ -126,7 +133,13 @@ def cov_omega_theta(omega, theta):
           cov_m2_T1 = -expm1_om/expm1_th * np.exp(-omega)* ( expm1mx_om/omega - (1-expm1_th)*expm1mx_omth/omth - expm1_th)
           cov_m2_Tinf = np.exp(-2.0*omega)*expm1_th*expm1_om/omth
           cov_m2 = cov_m2_T0 + cov_m2_T1 + cov_m2_Tinf
-  return np.array([cov_m2, cov_m1, cov_0, cov_1, cov_2])
+          # Returning "components" allows calculation of time varying processes. Each component refers to shocks that originate in a specific year, so they could have different variances and or omega/thetas
+          components = np.array([[cov_m2_T0,cov_m2_T1,-cov_m2_Tinf*expm1_omth,cov_m2_Tinf],
+                                 [cov_m1_T0,cov_m1_T1,-cov_m1_Tinf*expm1_omth,cov_m1_Tinf],
+                                 [cov_0_T0, cov_0_T1 ,-cov_0_Tinf*expm1_omth ,cov_0_Tinf ],
+                                 [cov_1_T0, cov_1_T1 ,-cov_1_Tinf*expm1_omth ,cov_1_Tinf ],
+                                 [cov_2_T0, cov_2_T1 ,-cov_2_Tinf*expm1_omth ,cov_2_Tinf ]])
+  return np.array([cov_m2, cov_m1, cov_0, cov_1, cov_2]) , components
 
 ## OLD CODE which is not high precision (results in discontinuities around omega=0 or theta=0)
 ## Depreciated, but useful to keep as the code more easily maps into the 

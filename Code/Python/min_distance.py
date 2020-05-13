@@ -47,16 +47,17 @@ def implied_cov_bonusshk_continuous(var_bonus, T):
   cov_y_vec=cov_y[vech_indicesT]
   return cov_y_vec
 
-def implied_cov_expdecayshk_continuous(var_expdecayshk, omega, T):
+def implied_cov_expdecayshk_continuous_not_time_varying(var_expdecayshk, omega, T):
   '''
   Calculates the covariance matrix for an exponentially decaying stochastic 
   process, time aggregated in continuous time
+  Doesn't allow time-varying parameters (easier to read the code!)
   '''
   # Set up covariance matrix, initialized to zero
   cov_y  = np.zeros((T,T)) #/* Income */
   # pre-calculate covariance matrix of a stochasic process with shocks
   # that decay at rate omega
-  cov_omega = cov_omega_theta(omega, omega)
+  cov_omega, components = cov_omega_theta(omega, omega)
   var_omega    = cov_omega[2]
   cov_omega_1  = cov_omega[3]
   cov_omega_2  = cov_omega[4]
@@ -70,6 +71,73 @@ def implied_cov_expdecayshk_continuous(var_expdecayshk, omega, T):
     for j in range(M,T):
       cov_y[j-M,j] = var_expdecayshk*np.exp(-(M-2)*omega)*cov_omega_2
       cov_y[j,j-M] = cov_y[j-M,j]
+  vech_indicesT = vech_indices(T)
+  cov_y_vec=cov_y[vech_indicesT]
+  return cov_y_vec
+
+def implied_cov_expdecayshk_continuous(var_expdecayshk, omega, T):
+  '''
+  Calculates the covariance matrix for an exponentially decaying stochastic 
+  process, time aggregated in continuous time
+  '''
+  time_varying_omega = False
+  if isinstance(var_expdecayshk, (np.floating, float)):
+      var_expdecayshk = var_expdecayshk*np.ones(T+1)
+  elif len(var_expdecayshk)!=T+1:
+      return "var_expdecayshk must be a float or array of length T+1"
+  if isinstance(omega, (np.floating, float)):
+      omega = omega*np.ones(T+1)
+  if len(omega)==T+1:
+      time_varying_omega = (max(np.abs(np.diff(omega)))>0.0)
+  else:
+      return "omega must be a float or array of length T+1"
+  # Set up covariance matrix, initialized to zero
+  cov_y  = np.zeros((T,T)) #/* Income */
+  # pre-calculate covariance matrix of a stochasic process with shocks
+  # that decay at rate omega, will be updated if omega is time-varying
+  cov_omega, components = cov_omega_theta(omega[0], omega[0])
+  #first add in components of variance from shocks from before time starts
+  for t in range(T):
+      if t+2<=T-1:
+          for m in range(T-t-2):
+              cov_y[t,t+2+m] += var_expdecayshk[0]*components[0,3]*np.exp(-(2*t+m)*omega[0])
+      if t+1<=T-1:
+          cov_y[t,t+1] += var_expdecayshk[0]*components[1,3]*np.exp(-t*2*omega[0])
+      cov_y[t,t]       += var_expdecayshk[0]*components[2,3]*np.exp(-t*2*omega[0])
+  # Now add in compoments of variance for each time period (loop over k is for shock years, loop over t is the year for which we are calculating the variance/covariance)
+  for k in np.array(range(T+2))-1:
+      param_index = max(k,0) #Shocks before time -1 take same params at time -1
+      # If omega is time-varying, then update the cov_omega results to reflect parameters from the shock year (K)
+      if time_varying_omega:
+          cov_omega, components = cov_omega_theta(omega[param_index], omega[param_index]) 
+      # Now loop over the T years in which we measure variance/covariance, adding in the effect of shocks that originate at time k
+      for t in range(T):
+          if (t-k>=2):
+              for m in range(T-t-2):
+                  if t+2+m<=T-1:
+                      cov_y[t,t+2+m] += var_expdecayshk[param_index]*components[0,2]*np.exp(-(2*(t-k-2)+m)*omega[param_index])
+              if t+1<=T-1:
+                  cov_y[t,t+1] += var_expdecayshk[param_index]*components[1,2]*np.exp(-2*(t-k-2)*omega[param_index])
+              cov_y[t,t  ]     += var_expdecayshk[param_index]*components[2,2]*np.exp(-2*(t-k-2)*omega[param_index])
+          if (t-k==1):
+              for m in range(T-t-2):
+                  if t+2+m<=T-1:
+                      cov_y[t,t+2+m] += var_expdecayshk[param_index]*components[0,1]*np.exp(-m*omega[0])
+              if t+1<=T-1:
+                  cov_y[t,t+1] += var_expdecayshk[param_index]*components[1,1]
+              cov_y[t,t  ]     += var_expdecayshk[param_index]*components[2,1]
+          if (t-k==0):
+              for m in range(T-t-2):
+                  if t+2+m<=T-1:
+                      cov_y[t,t+2+m] += var_expdecayshk[param_index]*components[0,0]*np.exp(-m*omega[0])
+              if t+1<=T-1:
+                  cov_y[t,t+1] += var_expdecayshk[param_index]*components[1,0]
+              cov_y[t,t  ]     += var_expdecayshk[param_index]*components[2,0]
+  # So far we've created an upper triangular matrix, reflect it along diagonal:
+  for t in np.array(range(T)):
+      for j in np.array(range(T-t-1))+1:
+          cov_y[t+j,t] = cov_y[t,t+j]
+  # Turn matrix into vector
   vech_indicesT = vech_indices(T)
   cov_y_vec=cov_y[vech_indicesT]
   return cov_y_vec
