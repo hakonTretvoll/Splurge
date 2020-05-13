@@ -8,50 +8,50 @@ from scipy.optimize import minimize
 from pathlib import Path
 from tools import vech_indices, cov_omega_theta
 
-def implied_cov_permshk_continuous(params, T):
+def implied_cov_permshk_continuous(var_perm, T):
   '''
   Calculates the covariance matrix for permanent shocks in continuous time
   '''
-  # read in the parameters
-  var_perm          = params[0] # variance of permanent shock
+  if isinstance(var_perm, (np.floating, float)):
+      var_perm = np.ones(T+1)*var_perm # variance of permanent shock
+  elif len(var_perm)!=T+1:
+      return "Number of parameters must be equal to 1 or T+1"
   
-  # Set up covariance matrix, initialized to zero
+  # Create covariance matrix
   cov_y  = np.zeros((T,T)) #/* Income */
-
   for j in range(T):
-    cov_y[j,j] = 2.0/3.0*var_perm 
+    cov_y[j,j] = 1.0/3.0*var_perm[j] + 1.0/3.0*var_perm[j+1]
   for j in range(1,T):
-    cov_y[j-1,j] = 1.0/6.0*var_perm 
+    cov_y[j-1,j] = 1.0/6.0*var_perm[j-1] 
     cov_y[j,j-1] = cov_y[j-1,j]
   vech_indicesT = vech_indices(T)
   cov_y_vec=cov_y[vech_indicesT]
   return cov_y_vec
 
-def implied_cov_transhk_continuous(params, T):
+def implied_cov_bonusshk_continuous(var_bonus, T):
   '''
   Calculates the covariance matrix for a transitory shock with NO persistence
   '''
-  # read in the parameters
-  var_puretran          = params[0] # variance of the purely transitory shock
+  if isinstance(var_bonus, (np.floating, float)):
+     var_bonus = var_bonus*np.ones(T+1)
+  elif len(var_bonus)!=T+1:
+     return "var_bonus must be a float or array of length T+1"
   # Set up covariance matrix, initialized to zero
   cov_y  = np.zeros((T,T)) 
   for j in range(T):
-    cov_y[j,j] = 2.0*var_puretran
+    cov_y[j,j] = var_bonus[j-1] + var_bonus[j]
   for j in range(1,T):
-    cov_y[j-1,j] = -var_puretran
+    cov_y[j-1,j] = -var_bonus[j-1]
     cov_y[j,j-1] = cov_y[j-1,j]
   vech_indicesT = vech_indices(T)
   cov_y_vec=cov_y[vech_indicesT]
   return cov_y_vec
 
-def implied_cov_expdecayshk_continuous(params, T):
+def implied_cov_expdecayshk_continuous(var_expdecayshk, omega, T):
   '''
   Calculates the covariance matrix for an exponentially decaying stochastic 
   process, time aggregated in continuous time
   '''
-  # read in the parameters
-  var_expdecayshk   = params[0] # variance of the exponential decay shock - this is the variance of the unexpected change in the time aggregated process over a year
-  omega             = params[1] # decay parameter of the process
   # Set up covariance matrix, initialized to zero
   cov_y  = np.zeros((T,T)) #/* Income */
   # pre-calculate covariance matrix of a stochasic process with shocks
@@ -109,15 +109,21 @@ def impact_matrix_bonus(var_bonus, T, num_months=12, var_weights = None):
     if len(var_weights)!=num_months:
         return "var_weight must be the same length as there are num_months"
     var_weights = var_weights/np.sum(var_weights)  # Normalize
+    
+    if isinstance(var_bonus, (np.floating, float)):
+        var_bonus = var_bonus*np.ones(T+1)
+    elif len(var_bonus)!=T+1:
+        return "var_bonus must be a float or array of length T+1"
+    
     K = (T+1)*num_months
     impact_matrix = np.zeros((T,K))
     for k in range(K):
         year = np.floor(k/(num_months*1.0)).astype(int)-1  # start with shocks that happen in year -1, as these impact the change in income in period 0 (negaitively)
         month = k%num_months # this is the modulo operator
         if year>=0:
-            impact_matrix[year,k]   +=  (var_weights[month]*var_bonus)**0.5
+            impact_matrix[year,k]   +=  (var_weights[month]*var_bonus[year+1])**0.5 # Note var_bonus goes from 0 to T (T+1 years), impact_matrix goes from ) to T-1 (T years))
         if year<=T-2:
-            impact_matrix[year+1,k] += -(var_weights[month]*var_bonus)**0.5
+            impact_matrix[year+1,k] += -(var_weights[month]*var_bonus[year+1])**0.5
     return impact_matrix
 
 def impact_matrix_tran(var_tran, omega, T, num_months=12, pre_periods=10, var_weights = None):
@@ -139,17 +145,30 @@ def impact_matrix_tran(var_tran, omega, T, num_months=12, pre_periods=10, var_we
         return "var_weight must be the same length as there are num_months"
     var_weights = var_weights/np.sum(var_weights)  # Normalize
     
-    first_year_income = np.mean(np.exp(-omega*np.array(range(num_months))/(num_months*1.0))) # sum of income received in the year following the shock
+    if isinstance(var_tran, (np.floating, float)):
+        var_tran = var_tran*np.ones(T+1)
+    elif len(var_tran)!=T+1:
+        return "var_tran must be a float or array of length T+1"
+    if isinstance(omega, (np.floating, float)):
+        omega = omega*np.ones(T+1)
+        first_year_income = np.ones(T+1)*np.mean(np.exp(-omega[0]*np.array(range(num_months))/(num_months*1.0))) # sum of income received in the year following the shock
+    elif len(omega)==T+1:
+        for i in range(T+1):
+            first_year_income = np.mean(np.exp(-omega[i]*np.array(range(num_months))/(num_months*1.0))) # sum of income received in the year following the shock
+    else:
+        return "omega must be a float or array of length T+1"
+    
     K = (T+pre_periods+1)*num_months
     impact_matrix = np.zeros((T,K))
     for k in range(K):
         month = k%num_months # this is the modulo operator
+        year_shock = max(0, np.floor(k/(num_months*1.0)).astype(int) - pre_periods) #var_tran is fixed at the year zero value for all the pre-periods
         for i in range(K-k):
             year = np.floor((k+i)/(num_months*1.0)).astype(int) -1 - pre_periods
             if year>=0:
-                impact_matrix[year,k] += ((var_tran*var_weights[month])**0.5)/(first_year_income*num_months)*np.exp(-omega*i/(num_months*1.0))
+                impact_matrix[year,k] += ((var_tran[year_shock]*var_weights[month])**0.5)/(first_year_income[year_shock]*num_months)*np.exp(-omega[year_shock]*i/(num_months*1.0))
             if year>=-1 and year<=T-2:
-                impact_matrix[year+1,k] += -((var_tran*var_weights[month])**0.5)/(first_year_income*num_months)*np.exp(-omega*i/(num_months*1.0))
+                impact_matrix[year+1,k] += -((var_tran[year_shock]*var_weights[month])**0.5)/(first_year_income[year_shock]*num_months)*np.exp(-omega[year_shock]*i/(num_months*1.0))
     return impact_matrix
 
 def impact_matrix_perm(var_perm, T, num_months=12, var_weights = None):
@@ -170,15 +189,20 @@ def impact_matrix_perm(var_perm, T, num_months=12, var_weights = None):
         return "var_weight must be the same length as there are num_months"
     var_weights = var_weights/np.sum(var_weights)  # Normalize
     
+    if isinstance(var_perm, (np.floating, float)):
+        var_perm = var_perm*np.ones(T+1)
+    elif len(var_perm)!=T+1:
+        return "var_perm must be a float or array of length T+1"
+    
     K = (T+1)*num_months
     impact_matrix = np.zeros((T,K))
     for k in range(K):
         year = np.floor(k/(num_months*1.0)).astype(int)-1  # start with shocks that happen in year -1, as these impact the change in income in period 0 
         month = k%num_months # this is the modulo operator
         if year>=0:
-            impact_matrix[year,k]   +=  (var_weights[month]*var_perm)**0.5 * ((year+2)*num_months-k)/(1.0*num_months)
+            impact_matrix[year,k]   += (var_weights[month]*var_perm[year+1])**0.5 * ((year+2)*num_months-k)/(1.0*num_months)
         if year<=T-2:
-            impact_matrix[year+1,k] += -(var_weights[month]*var_perm)**0.5 * (k-(year+1)*num_months)/(1.0*num_months)
+            impact_matrix[year+1,k] += (var_weights[month]*var_perm[year+1])**0.5 * (k-(year+1)*num_months)/(1.0*num_months)
     return impact_matrix
 
 def implied_inc_cov_composite(params,T):
@@ -188,11 +212,11 @@ def implied_inc_cov_composite(params,T):
     bonus    = params[3]
     rho      = params[4]
     if rho==0.0:
-        perm_inc_cov = implied_cov_permshk_continuous([var_perm],T)
+        perm_inc_cov = implied_cov_permshk_continuous(var_perm,T)
     else:
-        perm_inc_cov = implied_cov_expdecayshk_continuous([var_perm,rho],T)
-    bonus_inc_cov = implied_cov_transhk_continuous([var_tran*bonus],T)
-    trandecay_inc_cov = implied_cov_expdecayshk_continuous([var_tran*(1-bonus),omega],T)
+        perm_inc_cov = implied_cov_expdecayshk_continuous(var_perm,rho,T)
+    bonus_inc_cov = implied_cov_bonusshk_continuous(var_tran*bonus,T)
+    trandecay_inc_cov = implied_cov_expdecayshk_continuous(var_tran*(1-bonus),omega,T)
 #    impact_tran = impact_matrix_tran(var_tran*(1-bonus),omega,T,num_months=5,pre_periods=10)
 #    tran_inc_cov = implied_inc_cov_discrete(impact_tran, T, num_months=12)
     implied_inc_cov_composite = perm_inc_cov + bonus_inc_cov + trandecay_inc_cov
