@@ -77,15 +77,19 @@ init_params = np.array([0.00809118,  #permanent variance
                         1.13118306,    #decay parameter of slightly persistant transitory shock
                         0.57210194,   #fraction of transitory variance that has no persistence
                         0.0])  # decay parameter of perm shock
-optimize_index = np.array([True,  #permanent variance
-                        True,  #transitory variance
-                        True,    #decay parameter of slightly persistant transitory shock
-                        True,   #fraction of transitory variance that has no persistence
-                        False]) # decay parameter of perm shock (turned off for now)
+# optimize_index: -1 indicates fix parameter at value of init_params, a positive integer is an index
+# that indicates this parameter should be set equal to the indexed parameter when optimizing
+# i.e. optimize_index = np.array([0,1,1,-1]) means parameter 0 is freely optimized, parameters 1 and 2
+# are set equal and optimized with the init_param from parameter 1, and parameter 3 is fixed at its init param
+optimize_index = np.array([0,  #permanent variance
+                           1,  #transitory variance
+                           2,    #decay parameter of slightly persistant transitory shock
+                           3,   #fraction of transitory variance that has no persistence
+                          -1])  # decay parameter of perm shock
 bounds     = [(0.000001,0.1),
               (0.000001,0.1),
-              (0.01,5.0),
-              (0.0,1.0),
+              (0.1,5.0),
+              (0.0,0.9999),     #currently the L-BFGS-B solving mechanism calculates numerical derivatives by adding epsilon at the bound, so we bound below one. This has been fixed in scipy but not yet released (as of scipy 1.4.1)
               (0.0,0.1)]
 
 
@@ -345,10 +349,10 @@ estimate_button = widgets.Button(description="Estimate!",
                                  layout=widgets.Layout(width='70%', height='30px', grid_area='est_butt'),
                                  justify_self = 'center')
 def estimate_button_clicked(b):
-    optimize_index = np.array([not fix_perm.value,not fix_tran.value,not fix_half_life.value,not fix_bonus.value,not fix_perm_decay.value])
+    optimize_index = np.array([-1 if fix_perm.value else 0,-1 if fix_tran.value else 1,-1 if fix_half_life.value else 2,-1 if fix_bonus.value else 3,-1 if fix_perm_decay.value else 4])
     init_params_with_fix = init_params
     slider_values = np.array([perm_var_widget.value, tran_var_widget.value, np.log(2)/half_life_widget.value, bonus_widget.value, perm_decay_widget.value])
-    init_params_with_fix[np.logical_not(optimize_index)] = slider_values[np.logical_not(optimize_index)]
+    init_params_with_fix[np.equal(optimize_index,-1)] = slider_values[np.equal(optimize_index,-1)]
     compare = compare_widget.value
     quantile = quantile_widget.value
     compare_moments_inc, compare_Omega_inc  = compare_to_moments(compare, quantile)

@@ -352,33 +352,41 @@ def implied_inc_cov_composite_monthly(params,T):
     implied_inc_cov_composite = perm_inc_cov + bonus_inc_cov + trandecay_inc_cov
     return implied_inc_cov_composite
 
-def parameter_estimation(empirical_moments, Omega, T, init_params, optimize_index=None, bounds=None):
+def model_covariance(params, T, model, var_monthly_weights):
+    if (model=="PermTranBonus_continuous"): # Parameters should be length 5 (var_perm,var_tran,omega,bonus and perm_decay)
+        model_cov = implied_inc_cov_composite_continuous(params, T)
+    return model_cov
+
+def parameter_estimation(empirical_moments, Omega, T, init_params, optimize_index=None, bounds=None, model="PermTranBonus_continuous", var_monthly_weights=None):
   '''
   Estimates model parameters
   '''
   #fix certain parameters if required
   if (optimize_index is not None):
-      optimize_params = init_params[optimize_index]
-      fixed_params      = init_params[np.logical_not(optimize_index)]
+      optimize_params = init_params[np.equal(optimize_index,range(len(optimize_index)))] # parameters to be optimized are only those that have their own index in "optimize_index"
+      fixed_params      = init_params[np.equal(optimize_index,-1)] # parameters to be fixed have -1 as an entry in the optimize_index
       if (bounds is not None):
           all_bounds = bounds
           bounds = []
           for i in range(len(all_bounds)):
-              if optimize_index[i]:
+              if (optimize_index[i]==i):
                   bounds += [all_bounds[i]]
   else:
     optimize_params = init_params
-    optimize_index = np.array([True]*len(init_params), dtype=bool)
+    optimize_index = np.array(range(len(init_params)))
     fixed_params = np.array([])
 
-  def implied_cov_limited_params(optimize_params, T, optimize_index, fixed_params):
+  def implied_cov_limited_params(optimize_params, T, optimize_index, fixed_params,model,var_monthly_weights):
+    fixed_index = np.equal(optimize_index,-1) # fixed parameters are indicated by -1 in optimize_index
+    recover_index = np.array(range(len(optimize_index)))[np.equal(optimize_index,range(len(optimize_index)))] # index of each optimizing parameter in the original init_params vector
     params = np.zeros(len(optimize_index))
-    params[optimize_index] = optimize_params
-    params[np.logical_not(optimize_index)] = fixed_params
-    model_cov = implied_inc_cov_composite_continuous(params, T)
+    params[recover_index] = optimize_params # Sets optimizing parameters equal to their entered value
+    params[fixed_index]   = fixed_params # Sets fixed parameters equal to their entered value
+    params[np.logical_not(fixed_index)] = params[optimize_index[np.logical_not(fixed_index)]] # Sets other parameters equal to the optimizing parameter chosen
+    model_cov = model_covariance(params, T, model, var_monthly_weights)
     return model_cov
-  def objectiveFun(optimize_params, T, empirical_cov, weight_matrix, optimize_index, fixed_params):
-    model_cov = implied_cov_limited_params(optimize_params, T, optimize_index, fixed_params)
+  def objectiveFun(optimize_params, T, empirical_cov, weight_matrix, optimize_index, fixed_params,model,var_monthly_weights):
+    model_cov = implied_cov_limited_params(optimize_params, T, optimize_index, fixed_params,model,var_monthly_weights)
     distance = np.dot(np.dot((model_cov-empirical_cov), weight_matrix), (model_cov-empirical_cov))
     return distance
 
@@ -387,23 +395,27 @@ def parameter_estimation(empirical_moments, Omega, T, init_params, optimize_inde
   #ret = objectiveFun(optimize_params, T, empirical_moments, weight_matrix,optimize_index, fixed_params)
   
   # Do minimization
-  solved_objective = minimize(objectiveFun, optimize_params, args=(T, empirical_moments, weight_matrix, optimize_index, fixed_params), method='L-BFGS-B', bounds=bounds, options= {'disp': 1})
+  solved_objective = minimize(objectiveFun, optimize_params, args=(T, empirical_moments, weight_matrix, optimize_index, fixed_params,model,var_monthly_weights), method='L-BFGS-B', bounds=bounds, options= {'disp': 1})
   solved_params = solved_objective.x
   # Calculate standard errors
-  fun_for_jacob = lambda params: implied_cov_limited_params(params, T, optimize_index, fixed_params)
+  fun_for_jacob = lambda params: implied_cov_limited_params(params, T, optimize_index, fixed_params,model,var_monthly_weights)
   jacob = nd.Jacobian(fun_for_jacob,step=0.00001)(solved_params)
   Sandwich1 = inv(np.dot(np.transpose(jacob),np.dot(weight_matrix,jacob)))
   Sandwich2 = np.dot(np.transpose(jacob),np.dot(weight_matrix,np.dot(Omega,np.dot(weight_matrix,jacob))))
   cov_params = np.dot(Sandwich1,np.dot(Sandwich2,Sandwich1))
   standard_errors = np.diag(cov_params)**0.5
   # Create output
+  fixed_index = np.equal(optimize_index,-1) # fixed parameters are indicated by -1 in optimize_index
+  recover_index = np.array(range(len(optimize_index)))[np.equal(optimize_index,range(len(optimize_index)))] # index of each optimizing parameter in the original init_params vector
   output_params = np.zeros(len(optimize_index))
-  output_params[optimize_index] = solved_params
-  output_params[np.logical_not(optimize_index)] = fixed_params
+  output_params[recover_index] = solved_params # Sets optimizing parameters equal to their entered value
+  output_params[fixed_index]   = fixed_params # Sets fixed parameters equal to their entered value
+  output_params[np.logical_not(fixed_index)] = output_params[optimize_index[np.logical_not(fixed_index)]] # Sets other parameters equal to the optimizing parameter chosen
   
   output_se = np.zeros(len(optimize_index))
-  output_se[optimize_index] = standard_errors
-  output_se[np.logical_not(optimize_index)] = 0.0
+  output_se[recover_index] = standard_errors
+  output_se[fixed_index] = 0.0
+  output_se[np.logical_not(fixed_index)] = output_se[optimize_index[np.logical_not(fixed_index)]]
 
   return output_params, output_se
 

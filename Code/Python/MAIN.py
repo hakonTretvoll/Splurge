@@ -27,11 +27,11 @@ init_params = np.array([0.005,  #permanent variance
                         0.5,    #decay parameter of slightly persistant transitory shock
                         0.5,   #fraction of transitory variance that has no persistence
                         0.0])  # decay parameter of perm shock
-optimize_index = np.array([True,  #permanent variance
-                        True,  #transitory variance
-                        True,    #decay parameter of slightly persistant transitory shock
-                        True,   #fraction of transitory variance that has no persistence
-                        False])
+optimize_index = np.array([0,  #permanent variance
+                           1,  #transitory variance
+                           2,    #decay parameter of slightly persistant transitory shock
+                           3,   #fraction of transitory variance that has no persistence
+                          -1])  # decay parameter of perm shock
 bounds     = [(0.000001,0.1),
               (0.000001,0.1),
               (0.1,5.0),
