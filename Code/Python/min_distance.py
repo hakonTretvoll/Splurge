@@ -319,11 +319,23 @@ def impact_matrix_MA1(var_tran, omega, T, num_months=12, var_weights = None):
     return impact_matrix
 
 def implied_inc_cov_composite_continuous(params,T):
-    var_perm = params[0]
-    var_tran = params[1]
-    omega    = params[2]
-    bonus    = params[3]
-    rho      = params[4]
+    block_len = T+1
+    if len(params)==5:
+        var_perm = params[0]
+        var_tran = params[1]
+        omega    = params[2]
+        bonus    = params[3]
+        rho      = params[4]
+    elif len(params)==block_len*5:
+        var_perm = params[0:block_len]
+        var_tran = params[  block_len:2*block_len]
+        omega    = params[2*block_len:3*block_len]
+        bonus    = params[3*block_len:4*block_len]
+        rho      = params[4*block_len:5*block_len]
+        if np.array_equal(rho, np.zeros_like(rho)):
+            rho = 0.0
+    else:
+        return "params must be length 5 or 5*(T+1)"
     if rho==0.0:
         perm_inc_cov = implied_cov_permshk_continuous(var_perm,T)
     else:
@@ -392,7 +404,7 @@ def parameter_estimation(empirical_moments, Omega, T, init_params, optimize_inde
 
   # Define the weight matrix as Equal Weight Minimum Distance
   weight_matrix = np.diag(np.diag(Omega)**(-1))
-  #ret = objectiveFun(optimize_params, T, empirical_moments, weight_matrix,optimize_index, fixed_params)
+  #ret = objectiveFun(optimize_params, T, empirical_moments, weight_matrix,optimize_index, fixed_params,model,var_monthly_weights)
   
   # Do minimization
   solved_objective = minimize(objectiveFun, optimize_params, args=(T, empirical_moments, weight_matrix, optimize_index, fixed_params,model,var_monthly_weights), method='L-BFGS-B', bounds=bounds, options= {'disp': 1})

@@ -39,7 +39,30 @@ bounds     = [(0.000001,0.1),
               (0.0,0.1)]
 
 # Do estimation
+#estimates, estimate_se = parameter_estimation(empirical_moments_inc, Omega_inc, T, init_params, bounds=bounds, optimize_index=optimize_index)
+
+block_length = T+1
+init_params =    np.array(np.concatenate(([0.005]*block_length,  #permanent variance
+                                          [0.003]*block_length,  #transitory variance
+                                          [0.5  ]*block_length,    #decay parameter of slightly persistant transitory shock
+                                          [0.5  ]*block_length,   #fraction of transitory variance that has no persistence
+                                          [0.0  ]*block_length )))  # decay parameter of perm shock
+optimize_index = np.array(np.concatenate((np.array([0, 0, 2, 2, 4, 4, 6, 6, 8, 8, 10, 10, 10]),  #permanent variance
+                                          np.array([0, 0, 2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 10])+block_length,  #transitory variance
+                                          np.array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0,  0,  0,  0])+2*block_length,    #decay parameter of slightly persistant transitory shock
+                                          np.array([0, 0, 0, 0, 4, 4, 4, 4, 4, 9,  9,  9,  9])+3*block_length,   #fraction of transitory variance that has no persistence
+                                          [-1           ]*block_length )))  # decay parameter of perm shock
+bounds     = [(0.000001,0.1)]*block_length + \
+             [(0.000001,0.1)]*block_length + \
+             [(0.1,5.0)     ]*block_length + \
+             [(0.0,0.9999)  ]*block_length + \
+             [(0.0,0.1)     ]*block_length
+
 estimates, estimate_se = parameter_estimation(empirical_moments_inc, Omega_inc, T, init_params, bounds=bounds, optimize_index=optimize_index)
+
+
+
+
 
 #subgroup_stub = "moments_by_liquid_wealth_quantile"
 #num_quantiles = 5
