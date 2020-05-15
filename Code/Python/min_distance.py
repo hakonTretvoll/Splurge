@@ -410,7 +410,7 @@ def implied_inc_cov_composite_monthly(params,T, var_monthly_weights=None):
     if (rho!=0.0):
         return "Monthly model cannot handle permanent shock decay"
     if (var_monthly_weights is not None):
-        if len(var_monthly_weights)==2:
+        if np.shape(var_monthly_weights)[0]==2:
             var_perm_weights = var_monthly_weights[0]
             var_tran_weights = var_monthly_weights[1]
         else:
@@ -440,7 +440,7 @@ def implied_inc_cov_composite_MA1_monthly(params,T, var_monthly_weights=None):
     if (rho!=0.0):
         return "Monthly model cannot handle permanent shock decay"
     if (var_monthly_weights is not None):
-        if len(var_monthly_weights)==2:
+        if np.shape(var_monthly_weights)[0]==2:
             var_perm_weights = var_monthly_weights[0]
             var_tran_weights = var_monthly_weights[1]
         else:

@@ -50,6 +50,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from pathlib import Path
 import ipywidgets as widgets
+from IPython.display import display,clear_output
 from min_distance import parameter_estimation, parameter_estimation_by_subgroup, vech_indices, model_covariance
 
 
@@ -93,7 +94,7 @@ bounds     = [(0.000001,0.1),
               (0.0,0.1)]
 
 
-# %% {"code_folding": [0]}
+# %% {"code_folding": [0, 6]}
 # Estimate parameters and calculate mean of moments over years
 estimates, estimate_se = parameter_estimation(empirical_moments_inc, Omega_inc, T, init_params, bounds=bounds, optimize_index=optimize_index)  
 implied_cov_full = model_covariance(estimates, T, model="PermTranBonus_continuous")
@@ -125,7 +126,7 @@ for t in range(T):
     CS_moments_mean[t] = np.dot(this_diag,CS_moments)
 
 
-# %% {"code_folding": [0]}
+# %% {"code_folding": [0, 2, 50]}
 # Define plotting function
 
 def compare_to_moments(compare, quantile):
@@ -290,7 +291,7 @@ def plot_moments(perm_var,tran_var,half_life,bonus,perm_decay,compare="All House
     panel4.set_ylim(np.array([0.0,np.max(np.array([0.02,1.1*CS_mean_compare_moments[0]/CS_moments_factor[0]]))]))
 
 
-# %% {"code_folding": [0]}
+# %% {"code_folding": [0, 4, 16, 28, 40, 52, 64, 67, 82, 96, 102, 110, 116, 121, 127, 132, 138, 143, 149, 154, 160, 165, 171, 174, 177]}
 #set up widgets with default values for plot
 cont_update = False
 orientation = 'vertical'
@@ -306,8 +307,7 @@ perm_var_widget = widgets.FloatSlider(
     orientation=orientation,
     readout=True,
     readout_format='.4f',
-    layout=widgets.Layout(height = slider_height, grid_area='perm_var')
-)
+    layout=widgets.Layout(height = slider_height, grid_area='perm_var'))
 tran_var_widget = widgets.FloatSlider(
     value=estimates[1],
     min=0,
@@ -319,8 +319,7 @@ tran_var_widget = widgets.FloatSlider(
     orientation=orientation,
     readout=True,
     readout_format='.4f',
-    layout=widgets.Layout(height = slider_height, grid_area='tran_var')
-)
+    layout=widgets.Layout(height = slider_height, grid_area='tran_var'))
 half_life_widget = widgets.FloatSlider(
     value=np.log(2)/estimates[2],
     min=0,
@@ -332,8 +331,7 @@ half_life_widget = widgets.FloatSlider(
     orientation=orientation,
     readout=True,
     readout_format='.1f',
-    layout=widgets.Layout(height = slider_height, grid_area='haf_life')
-)
+    layout=widgets.Layout(height = slider_height, grid_area='haf_life'))
 bonus_widget = widgets.FloatSlider(
     value=estimates[3],
     min=0,
@@ -345,8 +343,7 @@ bonus_widget = widgets.FloatSlider(
     orientation=orientation,
     readout=True,
     readout_format='.2f',
-    layout=widgets.Layout(height = slider_height, grid_area='bonus___')
-)
+    layout=widgets.Layout(height = slider_height, grid_area='bonus___'))
 perm_decay_widget = widgets.FloatSlider(
     value=estimates[4].astype(bool),
     min=0.0,
@@ -358,8 +355,7 @@ perm_decay_widget = widgets.FloatSlider(
     orientation=orientation,
     readout=True,
     readout_format='.4f',
-    layout=widgets.Layout(height = slider_height, grid_area='perm_dec')
-)
+    layout=widgets.Layout(height = slider_height, grid_area='perm_dec'))
 estimate_button = widgets.Button(description="Estimate!",
                                  layout=widgets.Layout(width='70%', height='30px', grid_area='est_butt'),
                                  justify_self = 'center')
@@ -378,7 +374,6 @@ def estimate_button_clicked(b):
     bonus_widget.value = estimates[3]
     perm_decay_widget.value = estimates[4]
 estimate_button.on_click(estimate_button_clicked)
-
 compare_widget = widgets.Dropdown(
     options=['All Households',
              'Liquid Wealth (quintiles)',
@@ -391,16 +386,14 @@ compare_widget = widgets.Dropdown(
     value='All Households',
     description='Compare To',
     disabled=False,
-    layout=widgets.Layout(width='auto', height='auto', grid_area='comp_box')
-)
+    layout=widgets.Layout(width='auto', height='auto', grid_area='comp_box'))
 quantiles = ['1']
 quantile_widget = widgets.Dropdown(
     options=quantiles,
     value='1',
     description='Quantile',
     disabled=False,
-    layout=widgets.Layout(width='auto', height='auto', grid_area='quan_box')
-)
+    layout=widgets.Layout(width='auto', height='auto', grid_area='quan_box'))
 graph_update = widgets.interactive(plot_moments,
                                    perm_var=perm_var_widget,
                                    tran_var=tran_var_widget,
@@ -408,26 +401,13 @@ graph_update = widgets.interactive(plot_moments,
                                    bonus=bonus_widget,
                                    perm_decay=perm_decay_widget,
                                    compare=compare_widget,
-                                   quantile=quantile_widget
-)
-# control_widget=widgets.TwoByTwoLayout(
-#           bottom_left=estimate_button,
-#           top_right=compare_widget,
-#           bottom_right=quantile_widget
-# )
-# slider_widget=widgets.TwoByTwoLayout(
-#           top_left=perm_var_widget,
-#           top_right=tran_var_widget,
-#           bottom_left = half_life_widget,
-#           bottom_right=bonus_widget
-# )
+                                   quantile=quantile_widget)
 fix_perm = widgets.Checkbox(
     value=False,#optimize_index[4],
     description='',
     disabled=False,
     indent=False,
-    layout=widgets.Layout(width='auto', height='auto')
-)
+    layout=widgets.Layout(width='auto', height='auto'))
 fix_perm_box = widgets.HBox(children=[fix_perm],layout=widgets.Layout(display='flex',
                 flex_flow='column',
                 align_items='center',
@@ -438,8 +418,7 @@ fix_tran = widgets.Checkbox(
     description='',
     disabled=False,
     indent=False,
-    layout=widgets.Layout(width='auto', height='auto')
-)
+    layout=widgets.Layout(width='auto', height='auto'))
 fix_tran_box = widgets.HBox(children=[fix_tran],layout=widgets.Layout(display='flex',
                 flex_flow='column',
                 align_items='center',
@@ -450,8 +429,7 @@ fix_half_life = widgets.Checkbox(
     description='',
     disabled=False,
     indent=False,
-    layout=widgets.Layout(width='auto', height='auto')
-)
+    layout=widgets.Layout(width='auto', height='auto'))
 fix_half_life_box = widgets.HBox(children=[fix_half_life],layout=widgets.Layout(display='flex',
                 flex_flow='column',
                 align_items='center',
@@ -462,8 +440,7 @@ fix_bonus = widgets.Checkbox(
     description='',
     disabled=False,
     indent=False,
-    layout=widgets.Layout(width='auto', height='auto')
-)
+    layout=widgets.Layout(width='auto', height='auto'))
 fix_bonus_box = widgets.HBox(children=[fix_bonus],layout=widgets.Layout(display='flex',
                 flex_flow='column',
                 align_items='center',
@@ -474,28 +451,24 @@ fix_perm_decay = widgets.Checkbox(
     description='',
     disabled=False,
     indent=False,
-    layout=widgets.Layout(width='auto', height='auto')
-)
+    layout=widgets.Layout(width='auto', height='auto'))
 fix_perm_decay_box = widgets.HBox(children=[fix_perm_decay],layout=widgets.Layout(display='flex',
                 flex_flow='column',
                 align_items='center',
                 width='100%',
                 grid_area = 'fix_pdec'))
-
 button_box_layout = widgets.Layout(display='flex',
                 flex_flow='column',
                 align_items='center',
                 width='100%',
                 grid_area = 'esti_box')
 estimate_box = widgets.HBox(children=[estimate_button],layout=button_box_layout)
-
 empty  = widgets.Button(description='',
                  layout=widgets.Layout(width='auto', grid_area='empty___'),
                  style=widgets.ButtonStyle(button_color='white'))
 Fix  = widgets.Button(description='Fix?',
                  layout=widgets.Layout(width='auto', grid_area='fix_____', align_content='flex-end'),
                  style=widgets.ButtonStyle(button_color='white'))
-
 control_panel = widgets.GridBox(children=[empty,
                           compare_widget,
                           quantile_widget,
@@ -523,7 +496,7 @@ control_panel = widgets.GridBox(children=[empty,
        )
 
 
-# %% {"code_folding": [0]}
+# %% {"code_folding": [0, 1, 44]}
 # Define plotting function for parameters by quantiles
 def plot_by_subgroup(subgroup_stub, T, init_params, optimize_index=optimize_index, bounds=bounds):
     subgroup_names = []
@@ -577,28 +550,26 @@ subgroup_widget = widgets.Dropdown(
              'Consumption (deciles)'],
     value='Income (deciles)',
     description='Subgroup',
-    disabled=False,
-)
+    disabled=False,)
 
 
 # %% {"code_folding": [0]}
 # Plot BPP and Carroll Samwick moments, with estimates and user-defined parameters
-# display(control_widget)
-# display( slider_widget )
 display(control_panel)
 graph_update.update()
 graph_update.children[7]
-
 
 # %% [markdown]
 # # Experimenting with Time Aggregation
 #
 # Work in progress...
 
-# %% {"code_folding": [0]}
+# %% {"code_folding": [0, 4]}
 # Define plot function to show how time aggregation affects parameters
 
-def plot_time_aggregation(perm_var,tran_var,half_life,bonus,theta):
+out_plt_time_agg=widgets.Output()
+out_plt_time_agg.layout.height = '650px'
+def plot_time_aggregation(perm_var,tran_var,half_life,bonus,theta,var_monthly_weights):
     fig = plt.figure(figsize=(14, 9),constrained_layout=True)
     gs = fig.add_gridspec(2, 13)
     panel1 = fig.add_subplot(gs[0, 0:3])
@@ -656,7 +627,6 @@ def plot_time_aggregation(perm_var,tran_var,half_life,bonus,theta):
     user_CS_continuous = CS_from_BPP(user_cov_continuous,T)[0:T] 
     user_cov_continuous = user_cov_continuous[0:T]
     
-    var_monthly_weights = None
     user_cov_monthly = model_covariance(user_params,T,model="PermTranBonus_monthly",var_monthly_weights=var_monthly_weights)
     user_CS_monthly = CS_from_BPP(user_cov_monthly,T)[0:T] 
     user_cov_monthly = user_cov_monthly[0:T]
@@ -696,9 +666,13 @@ def plot_time_aggregation(perm_var,tran_var,half_life,bonus,theta):
     panel1.set_ylim((-0.004,0.018))
     panel2.set_ylim((-0.002,0.0004))
     panel4.set_ylim((0.0,0.025))
+    with out_plt_time_agg:
+        clear_output()
+        display(fig)
 
 
-# %% {"code_folding": [0]}
+
+# %% {"code_folding": [0, 1, 13, 25, 37, 49, 63, 74, 85, 90, 92, 94, 106, 111, 115, 130]}
 # Setup widgets
 perm_var_widget2 = widgets.FloatSlider(
     value=estimates[0],
@@ -711,8 +685,7 @@ perm_var_widget2 = widgets.FloatSlider(
     orientation=orientation,
     readout=True,
     readout_format='.4f',
-    layout=widgets.Layout(height = slider_height, grid_area='perm_var')
-)
+    layout=widgets.Layout(height = slider_height, grid_area='perm_var'))
 tran_var_widget2 = widgets.FloatSlider(
     value=estimates[1],
     min=0,
@@ -724,8 +697,7 @@ tran_var_widget2 = widgets.FloatSlider(
     orientation=orientation,
     readout=True,
     readout_format='.4f',
-    layout=widgets.Layout(height = slider_height, grid_area='tran_var')
-)
+    layout=widgets.Layout(height = slider_height, grid_area='tran_var'))
 half_life_widget2 = widgets.FloatSlider(
     value=np.log(2)/estimates[2],
     min=0,
@@ -737,8 +709,7 @@ half_life_widget2 = widgets.FloatSlider(
     orientation=orientation,
     readout=True,
     readout_format='.1f',
-    layout=widgets.Layout(height = slider_height, grid_area='haf_life')
-)
+    layout=widgets.Layout(height = slider_height, grid_area='haf_life'))
 bonus_widget2 = widgets.FloatSlider(
     value=estimates[3],
     min=0,
@@ -750,8 +721,7 @@ bonus_widget2 = widgets.FloatSlider(
     orientation=orientation,
     readout=True,
     readout_format='.2f',
-    layout=widgets.Layout(height = slider_height, grid_area='bonus___')
-)
+    layout=widgets.Layout(height = slider_height, grid_area='bonus___'))
 theta_widget2 = widgets.FloatSlider(
     value=estimates[4].astype(bool),
     min=0.0,
@@ -763,8 +733,7 @@ theta_widget2 = widgets.FloatSlider(
     orientation=orientation,
     readout=True,
     readout_format='.4f',
-    layout=widgets.Layout(height = slider_height, grid_area='theta___')
-)
+    layout=widgets.Layout(height = slider_height, grid_area='theta___'))
 month_list = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
 perm_monthly_weight_list = []
 for i in range(12):
@@ -773,6 +742,7 @@ for i in range(12):
                         description='',#month_list[i],
                         disabled=False,
                         min = 0.0,
+                        max = 99999999999999999999999999999,
                         step=0.1,
                         layout=widgets.Layout(width = '100%', grid_area = 'perm_'+month_list[i])
                             ))
@@ -783,20 +753,21 @@ for i in range(12):
                         description='',#month_list[i],
                         disabled=False,
                         min = 0.0,
+                        max = 99999999999999999999999999999,
                         step=0.1,
                         layout=widgets.Layout(width = '100%', grid_area = 'tran_'+month_list[i])
                             ))
-monthly_button_list = []
+monthly_text_list = []
 for i in range(12):
-    monthly_button_list.append(widgets.Button(
-                        description=month_list[i],
+    monthly_text_list.append(widgets.Text(
+                        value=month_list[i],
                         layout=widgets.Layout(width = '100%',grid_area = 'list_'+month_list[i])
                             ))
-perm_var_button = widgets.Button(description='Permanent Variance Weights',
+perm_var_text = widgets.Text(value='Permanent Variance Weights',
                         layout=widgets.Layout(width = '100%',grid_area = 'perm_wgt'))
-tran_var_button = widgets.Button(description='Transitory Variance Weights',
+tran_var_text = widgets.Text(value='Transitory Variance Weights',
                         layout=widgets.Layout(width = '100%',grid_area = 'tran_wgt'))
-monthy_weights_widget = widgets.GridBox(children=[empty, perm_var_button, tran_var_button]+perm_monthly_weight_list+tran_monthly_weight_list+monthly_button_list,
+monthy_weights_widget = widgets.GridBox(children=[empty, perm_var_text, tran_var_text]+perm_monthly_weight_list+tran_monthly_weight_list+monthly_text_list,
         layout=widgets.Layout(
             width='90%',
             grid_template_rows='auto',
@@ -807,7 +778,49 @@ monthy_weights_widget = widgets.GridBox(children=[empty, perm_var_button, tran_v
             "tran_wgt tran_Jan tran_Feb tran_Mar tran_Apr tran_May tran_Jun tran_Jul tran_Aug tran_Sep tran_Oct tran_Nov tran_Dec"
             ''')
        )
+monthly_weights = np.array([np.array([1.0]*12),np.array([1.0]*12)])
+def on_weight_change(dummy):
+    for i in range(12):
+        monthly_weights[0,i]=perm_monthly_weight_list[i].value
+        monthly_weights[1,i]=tran_monthly_weight_list[i].value
+    plot_time_aggregation(perm_var_widget2.value,tran_var_widget2.value,half_life_widget2.value,bonus_widget2.value,theta_widget2.value,monthly_weights)
+for i in range(12):
+    perm_monthly_weight_list[i].observe(on_weight_change, names=['value'])
+    tran_monthly_weight_list[i].observe(on_weight_change, names=['value'])
+
+control_panel2 = widgets.GridBox(children=[empty,
+                          perm_var_widget2,
+                          tran_var_widget2,
+                          half_life_widget2,
+                          bonus_widget2,
+                          theta_widget2],
+        layout=widgets.Layout(
+            width='90%',
+            grid_template_rows='auto auto auto',
+            grid_template_columns='35% 10% 10% 10% 10% 10% 10%',
+            grid_template_areas='''
+            "empty___ empty___ perm_var tran_var haf_life bonus___ theta___"
+            "empty___ empty___ perm_var tran_var haf_life bonus___ theta___"
+            ''')
+       )
+time_agg_graph_update = widgets.interactive(plot_time_aggregation,
+                                   perm_var=perm_var_widget2,
+                                   tran_var=tran_var_widget2,
+                                   half_life=half_life_widget2,
+                                   bonus=bonus_widget2,
+                                   theta=theta_widget2,
+                                   var_monthly_weights = widgets.fixed(monthly_weights))
+
+# %%
+# %matplotlib agg
+# %matplotlib agg
 display(monthy_weights_widget)
+display(control_panel2)
+display(out_plt_time_agg)
+on_weight_change(None)
+#display(out)
+#plot_time_aggregation_update.update()
+
 
 # %%
 plot_time_aggregation(estimates[0],estimates[1],np.log(2)/estimates[2],estimates[3],0.0)
@@ -816,7 +829,7 @@ plot_time_aggregation(estimates[0],estimates[1],np.log(2)/estimates[2],estimates
 # # Heterogeneity in Income Processes
 #
 
-# %% {"code_folding": []}
+# %% {"code_folding": [0]}
 # Plot parameter estimates by selected quantiles
 widgets.interact(plot_by_subgroup,subgroup_stub=subgroup_widget, T=widgets.fixed(T), init_params=widgets.fixed(init_params), optimize_index=widgets.fixed(optimize_index), bounds=widgets.fixed(bounds));
 
