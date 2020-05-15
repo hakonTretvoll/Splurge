@@ -34,32 +34,41 @@ optimize_index = np.array([0,  #permanent variance
                           -1])  # decay parameter of perm shock
 bounds     = [(0.000001,0.1),
               (0.000001,0.1),
-              (0.1,5.0),
+              (0.01,5.0),
               (0.0,0.9999),     #currently the L-BFGS-B solving mechanism calculates numerical derivatives by adding epsilon at the bound, so we bound below one. This has been fixed in scipy but not yet released (as of scipy 1.4.1)
               (0.0,0.1)]
 
-# Do estimation
+#Do estimation
+estimates_cont, estimate_se_cont = parameter_estimation(empirical_moments_inc, Omega_inc, T, init_params, bounds=bounds, optimize_index=optimize_index, model="PermTranBonus_continuous")
+estimates_monthly, estimate_se_monthly = parameter_estimation(empirical_moments_inc, Omega_inc, T, init_params, bounds=bounds, optimize_index=optimize_index, model="PermTranBonus_monthly")
+estimates_monthly_allJan, estimate_se_monthly_allJan = parameter_estimation(empirical_moments_inc, Omega_inc, T, init_params, bounds=bounds, optimize_index=optimize_index, model="PermTranBonus_monthly",var_monthly_weights=np.array([1.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0]))
+
+# Fix bonus at zero for MA1 calculations, as difficult (or impossible) to distinguish from theta
+init_params[3] = 0.0
+optimize_index[3] = -1
+estimates_annual, estimate_se_annual = parameter_estimation(empirical_moments_inc, Omega_inc, T, init_params, bounds=bounds, optimize_index=optimize_index, model="PermTranBonus_annual")
+estimates_monthly_MA1, estimate_se_monthly_MA1 = parameter_estimation(empirical_moments_inc, Omega_inc, T, init_params, bounds=bounds, optimize_index=optimize_index, model="PermTranBonus_MA1_monthly")
+estimates_monthly_MA1_allJan, estimate_se_monthly_MA1_allJan = parameter_estimation(empirical_moments_inc, Omega_inc, T, init_params, bounds=bounds, optimize_index=optimize_index, model="PermTranBonus_MA1_monthly",var_monthly_weights=np.array([1.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0]))
+
+#block_length = T+1
+#init_params =    np.array(np.concatenate(([0.005]*block_length,  #permanent variance
+#                                          [0.003]*block_length,  #transitory variance
+#                                          [0.5  ]*block_length,    #decay parameter of slightly persistant transitory shock
+#                                          [0.5  ]*block_length,   #fraction of transitory variance that has no persistence
+#                                          [0.0  ]*block_length )))  # decay parameter of perm shock
+#optimize_index = np.array(np.concatenate((np.array([0, 0, 2, 2, 4, 4, 6, 6, 8, 8, 10, 10, 10]),  #permanent variance
+#                                          np.array([0, 0, 2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 10])+block_length,  #transitory variance
+#                                          np.array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0,  0,  0,  0])+2*block_length,    #decay parameter of slightly persistant transitory shock
+#                                          np.array([0, 0, 0, 0, 4, 4, 4, 4, 4, 9,  9,  9,  9])+3*block_length,   #fraction of transitory variance that has no persistence
+#                                                   [-1 ]*block_length )))  # decay parameter of perm shock
+#bounds     = [(0.000001,0.1)]*block_length + \
+#             [(0.000001,0.1)]*block_length + \
+#             [(0.01,5.0)     ]*block_length + \
+#             [(0.0,0.9999)  ]*block_length + \
+#             [(0.0,0.1)     ]*block_length
+#
 #estimates, estimate_se = parameter_estimation(empirical_moments_inc, Omega_inc, T, init_params, bounds=bounds, optimize_index=optimize_index)
-
-block_length = T+1
-init_params =    np.array(np.concatenate(([0.005]*block_length,  #permanent variance
-                                          [0.003]*block_length,  #transitory variance
-                                          [0.5  ]*block_length,    #decay parameter of slightly persistant transitory shock
-                                          [0.5  ]*block_length,   #fraction of transitory variance that has no persistence
-                                          [0.0  ]*block_length )))  # decay parameter of perm shock
-optimize_index = np.array(np.concatenate((np.array([0, 0, 2, 2, 4, 4, 6, 6, 8, 8, 10, 10, 10]),  #permanent variance
-                                          np.array([0, 0, 2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 10])+block_length,  #transitory variance
-                                          np.array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0,  0,  0,  0])+2*block_length,    #decay parameter of slightly persistant transitory shock
-                                          np.array([0, 0, 0, 0, 4, 4, 4, 4, 4, 9,  9,  9,  9])+3*block_length,   #fraction of transitory variance that has no persistence
-                                          [-1           ]*block_length )))  # decay parameter of perm shock
-bounds     = [(0.000001,0.1)]*block_length + \
-             [(0.000001,0.1)]*block_length + \
-             [(0.1,5.0)     ]*block_length + \
-             [(0.0,0.9999)  ]*block_length + \
-             [(0.0,0.1)     ]*block_length
-
-estimates, estimate_se = parameter_estimation(empirical_moments_inc, Omega_inc, T, init_params, bounds=bounds, optimize_index=optimize_index)
-
+#
 
 
 

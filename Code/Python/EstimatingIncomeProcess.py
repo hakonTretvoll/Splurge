@@ -50,7 +50,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from pathlib import Path
 import ipywidgets as widgets
-from min_distance import parameter_estimation, parameter_estimation_by_subgroup, vech_indices, implied_inc_cov_composite_continuous
+from min_distance import parameter_estimation, parameter_estimation_by_subgroup, vech_indices, model_covariance
 
 
 # %% {"code_folding": [0]}
@@ -96,11 +96,12 @@ bounds     = [(0.000001,0.1),
 # %% {"code_folding": [0]}
 # Estimate parameters and calculate mean of moments over years
 estimates, estimate_se = parameter_estimation(empirical_moments_inc, Omega_inc, T, init_params, bounds=bounds, optimize_index=optimize_index)  
-implied_cov_full = implied_inc_cov_composite_continuous(estimates,T)
+implied_cov_full = model_covariance(estimates, T, model="PermTranBonus_continuous")
 implied_cov = implied_cov_full[0:T]
 # Get Carroll Samwick moments (just appropriate sum of BPP moments)
 vech_indicesT = vech_indices(T)
-def CS_from_BPP(BPP_moments):
+def CS_from_BPP(BPP_moments,T):
+    vech_indicesT = vech_indices(T)
     CS_moments = np.zeros((T,T))
     BPP_moments_matrix = np.zeros((T,T))
     BPP_moments_matrix[vech_indicesT] = BPP_moments
@@ -110,8 +111,8 @@ def CS_from_BPP(BPP_moments):
             CS_moments[i,j] = np.sum(BPP_moments_matrix[j:i+1,j:i+1])
     CS_moments = CS_moments[vech_indicesT]
     return CS_moments
-CS_moments = CS_from_BPP(empirical_moments_inc)
-implied_CS_moments = CS_from_BPP(implied_cov_full)[0:T]
+CS_moments = CS_from_BPP(empirical_moments_inc,T)
+implied_CS_moments = CS_from_BPP(implied_cov_full,T)[0:T]
 # Calculate mean empirical moments and standard errors
 mean_moments = np.zeros(T)
 mean_moments_se = np.zeros(T)
@@ -135,6 +136,16 @@ def compare_to_moments(compare, quantile):
         compare_moments_inc = empirical_moments_inc
         compare_Omega_inc = Omega_inc
         quantile_widget.options=['1']
+        tran_var_widget.max = 0.02
+        perm_var_widget.max = 0.02
+        T_compare = 12
+    elif (compare=="PSID BPP (2008)"):
+        compare_moments_inc = np.genfromtxt(Path(moments_BPP_dir,"BPP_PSID_income_vector.txt"), delimiter=',')
+        compare_Omega_inc = np.genfromtxt(Path(moments_BPP_dir,"BPP_PSID_income_omega.txt"), delimiter=',')
+        quantile_widget.options=['1']
+        tran_var_widget.max = 0.06
+        perm_var_widget.max = 0.06
+        T_compare = 14
     else:
         if (compare=="Liquid Wealth (quintiles)"):
             subgroup_stub='moments_by_liquid_wealth_quantile'
@@ -160,7 +171,10 @@ def compare_to_moments(compare, quantile):
         compare_Omega_name = subgroup_stub+str(quantile)+"_Omega.txt"
         compare_Omega_all =    np.genfromtxt(Path(moments_BPP_dir,compare_Omega_name), delimiter=',')
         compare_Omega_inc = Omega_all[income_moments,:][:,income_moments]
-    return compare_moments_inc, compare_Omega_inc
+        tran_var_widget.max = 0.02
+        perm_var_widget.max = 0.02
+        T_compare = 12
+    return compare_moments_inc, compare_Omega_inc, T_compare
 
 def plot_moments(perm_var,tran_var,half_life,bonus,perm_decay,compare="All Households",quantile=1):
     fig = plt.figure(figsize=(14, 9),constrained_layout=True)
@@ -216,9 +230,9 @@ def plot_moments(perm_var,tran_var,half_life,bonus,perm_decay,compare="All House
         omega = 1.0 # use dummy value for omega, and replace with a 'bonus' type shock instead - this is equivalent to zero half life
         bonus = 1.0
     user_params = np.array([perm_var,tran_var,omega,bonus,perm_decay])
-    user_cov_full = implied_inc_cov_composite_continuous(user_params,T)
+    user_cov_full = model_covariance(user_params, T, model="PermTranBonus_continuous")
     user_cov = user_cov_full[0:T]
-    user_CS_moments = CS_from_BPP(user_cov_full)[0:T]   
+    user_CS_moments = CS_from_BPP(user_cov_full,T)[0:T]   
     
     user_panel1, = panel1.plot(user_cov[0:3], color="orange")
     user_panel2, = panel2.plot(user_cov, color="orange", label='User')
@@ -234,44 +248,45 @@ def plot_moments(perm_var,tran_var,half_life,bonus,perm_decay,compare="All House
         panel4.plot(CS_Ndiff,CS_moments[0:T]/CS_moments_factor, linewidth=0,color='#1f77b4', label=' ')
         quantile_widget.options=['1']
     else:
-        compare_moments_inc, compare_Omega_inc  = compare_to_moments(compare, quantile)
-        CS_moments_compare = CS_from_BPP(compare_moments_inc)
-        mean_compare_moments = np.zeros(T)
-        mean_compare_moments_se = np.zeros(T)
-        CS_mean_compare_moments = np.zeros(T)
-        for t in range(T):
-            this_diag = np.diag(1.0/(T-t)*np.ones(T-t),-t)
-            this_diag = this_diag[vech_indicesT]
+        compare_moments_inc, compare_Omega_inc, T_compare  = compare_to_moments(compare, quantile)
+        CS_moments_compare = CS_from_BPP(compare_moments_inc,T_compare)
+        mean_compare_moments = np.zeros(T_compare)
+        mean_compare_moments_se = np.zeros(T_compare)
+        CS_mean_compare_moments = np.zeros(T_compare)
+        vech_indicesT_compare = vech_indices(T_compare)
+        for t in range(T_compare):
+            this_diag = np.diag(1.0/(T_compare-t)*np.ones(T_compare-t),-t)
+            this_diag = this_diag[vech_indicesT_compare]
             mean_compare_moments[t] = np.dot(this_diag,compare_moments_inc)
             mean_compare_moments_se[t] = np.dot(np.dot(this_diag,compare_Omega_inc),this_diag)**0.5
             CS_mean_compare_moments[t] = np.dot(this_diag,CS_moments_compare)
         panel1.plot(mean_compare_moments[0:3],color='#e377c2',marker='o')
-        panel2.plot(mean_compare_moments,label="Compare To",color='#e377c2',marker='o')
-        panel4.plot(CS_Ndiff,CS_mean_compare_moments/CS_moments_factor,label="Compare To",color='#e377c2',marker='o')
+        panel2.plot(mean_compare_moments[0:T],label="Compare To",color='#e377c2',marker='o')
+        panel4.plot(CS_Ndiff,CS_mean_compare_moments[0:T]/CS_moments_factor,label="Compare To",color='#e377c2',marker='o')
         #plot the moments for each year
         panel1.plot(compare_moments_inc[0:3], marker='x',linewidth=0,color='#e377c2')
         panel2.plot(np.array(range(T)),compare_moments_inc[0:T], marker='x',linewidth=0,label="Individual years",color='#e377c2')
         panel4.plot(CS_Ndiff[0:T],CS_moments_compare[0:T]/CS_moments_factor, marker='x',linewidth=0,label="Individual years",color='#e377c2')
-        i = T
+        i = T_compare
         for t in np.array(range(T-1))+1:
             panel1.plot(compare_moments_inc[i:min(i+T-t,i+3)], marker='x',linewidth=0,color='#e377c2')
             panel2.plot(np.array(range(T-t)),compare_moments_inc[i:i+T-t], marker='x',linewidth=0,color='#e377c2')
             panel4.plot(CS_Ndiff[0:T-t],CS_moments_compare[i:i+T-t]/CS_moments_factor[0:T-t], marker='x',linewidth=0,color='#e377c2')
-            i += T-t
+            i += T_compare-t
             # Standard errors
         panel1.plot(mean_compare_moments[0:3]+1.96*mean_compare_moments_se[0:3],linestyle="--",color="gray",linewidth=1.0)
         panel1.plot(mean_compare_moments[0:3]-1.96*mean_compare_moments_se[0:3],linestyle="--",color="gray",linewidth=1.0)
-        panel2.plot(mean_compare_moments+1.96*mean_compare_moments_se,linestyle="--",color="gray",linewidth=1.0)
-        panel2.plot(mean_compare_moments-1.96*mean_compare_moments_se,linestyle="--",color="gray",linewidth=1.0)
+        panel2.plot(mean_compare_moments[0:T]+1.96*mean_compare_moments_se[0:T],linestyle="--",color="gray",linewidth=1.0)
+        panel2.plot(mean_compare_moments[0:T]-1.96*mean_compare_moments_se[0:T],linestyle="--",color="gray",linewidth=1.0)
     panel2.legend(loc='lower right', prop={'size': 12}, ncol=2, frameon=False)
-    panel4.legend(loc='lower left', prop={'size': 12}, ncol=2, frameon=False)
+    panel4.legend(loc='upper right', prop={'size': 12}, ncol=2, frameon=False)
     panel1.axhline(y=0, color='k',linewidth=1.0)
     panel2.axhline(y=0, color='k',linewidth=1.0)
     #panel3.axhline(y=0, color='k',linewidth=1.0)
     panel4.axhline(y=0, color='k',linewidth=1.0)
     
-    panel1.set_ylim(np.array([-0.0025,np.max(np.array([0.0125,1.1*mean_compare_moments[0]]))]))
-    panel2.set_ylim(np.array([np.min(np.array([-0.0013,1.1*mean_compare_moments[1]])),0.0003]))
+    panel1.set_ylim(np.array([np.min(np.array([-0.0025,1.1*mean_compare_moments[1]])),np.max(np.array([0.0125,1.1*mean_compare_moments[0]]))]))
+    panel2.set_ylim(np.array([np.min(np.array([-0.0013,1.1*mean_compare_moments[1]])), np.max(np.array([0.0003,1.1*np.max(mean_compare_moments[2:T]),-1.1*np.min(mean_compare_moments[4:T])]))]))
     panel4.set_ylim(np.array([0.0,np.max(np.array([0.02,1.1*CS_mean_compare_moments[0]/CS_moments_factor[0]]))]))
 
 
@@ -355,8 +370,8 @@ def estimate_button_clicked(b):
     init_params_with_fix[np.equal(optimize_index,-1)] = slider_values[np.equal(optimize_index,-1)]
     compare = compare_widget.value
     quantile = quantile_widget.value
-    compare_moments_inc, compare_Omega_inc  = compare_to_moments(compare, quantile)
-    estimates, estimate_se = parameter_estimation(compare_moments_inc, compare_Omega_inc, T, init_params_with_fix, bounds=bounds, optimize_index=optimize_index)  
+    compare_moments_inc, compare_Omega_inc, T_compare  = compare_to_moments(compare, quantile)
+    estimates, estimate_se = parameter_estimation(compare_moments_inc, compare_Omega_inc, T_compare, init_params_with_fix, bounds=bounds, optimize_index=optimize_index)  
     perm_var_widget.value = estimates[0]
     tran_var_widget.value = estimates[1]
     half_life_widget.value = np.log(2)/estimates[2]
@@ -371,7 +386,8 @@ compare_widget = widgets.Dropdown(
              'Income (deciles)', 
              'Net Nominal Position (deciles)',
              'Interest Rate Exposure (deciles)',
-             'Consumption (deciles)'],
+             'Consumption (deciles)',
+             'PSID BPP (2008)'],
     value='All Households',
     description='Compare To',
     disabled=False,
@@ -573,6 +589,233 @@ display(control_panel)
 graph_update.update()
 graph_update.children[7]
 
+
+# %% [markdown]
+# # Experimenting with Time Aggregation
+#
+# Work in progress...
+
+# %% {"code_folding": [0]}
+# Define plot function to show how time aggregation affects parameters
+
+def plot_time_aggregation(perm_var,tran_var,half_life,bonus,theta):
+    fig = plt.figure(figsize=(14, 9),constrained_layout=True)
+    gs = fig.add_gridspec(2, 13)
+    panel1 = fig.add_subplot(gs[0, 0:3])
+    panel2 = fig.add_subplot(gs[0, 4:])
+    #panel3 = fig.add_subplot(gs[1, 0:3])
+    panel4 = fig.add_subplot(gs[1, 1:-2])
+    
+    panel1.plot(mean_moments[0:3], marker='o')
+    panel2.plot(mean_moments, marker='o',label="All Households Mean")
+    CS_Ndiff = np.array(range(T))+1.0
+    CS_moments_factor = (CS_Ndiff-1.0/3.0)
+    #panel3.plot(CS_Ndiff[0:3],CS_moments_mean[0:3]/CS_moments_factor[0:3], marker='o')
+    panel4.plot(CS_Ndiff,CS_moments_mean/CS_moments_factor, marker='o',label="All Households Mean")
+    # Standard errors
+    panel1.plot(mean_moments[0:3]+1.96*mean_moments_se[0:3],linestyle="--",color="gray",linewidth=1.0)
+    panel1.plot(mean_moments[0:3]-1.96*mean_moments_se[0:3],linestyle="--",color="gray",linewidth=1.0)
+    panel2.plot(mean_moments+1.96*mean_moments_se,linestyle="--",color="gray",linewidth=1.0)
+    panel2.plot(mean_moments-1.96*mean_moments_se,linestyle="--",color="gray",linewidth=1.0)
+    
+    #plot the moments for each year
+    panel1.plot(empirical_moments_inc[0:3], marker='x',linewidth=0,color='#1f77b4')
+    panel2.plot(np.array(range(T)),empirical_moments_inc[0:T], marker='x',linewidth=0,label="Individual years",color='#1f77b4')
+    #panel3.plot(CS_Ndiff[0:3],CS_moments[0:3]/CS_moments_factor[0:3], marker='x',linewidth=0,color='#1f77b4')
+    panel4.plot(CS_Ndiff[0:T],CS_moments[0:T]/CS_moments_factor, marker='x',linewidth=0,label="Individual years",color='#1f77b4') 
+    i = T
+    for t in np.array(range(T-1))+1:
+        panel1.plot(empirical_moments_inc[i:min(i+T-t,i+3)], marker='x',linewidth=0,color='#1f77b4')
+        panel2.plot(np.array(range(T-t)),empirical_moments_inc[i:i+T-t], marker='x',linewidth=0,color='#1f77b4')
+        #panel3.plot(CS_Ndiff[0:min(T-t,3)],CS_moments[i:min(i+T-t,i+3)]/CS_moments_factor[0:min(T-t,3)], marker='x',linewidth=0,color='#1f77b4')
+        panel4.plot(CS_Ndiff[0:T-t],CS_moments[i:i+T-t]/CS_moments_factor[0:T-t], marker='x',linewidth=0,color='#1f77b4')
+        i += T-t
+    panel1.set_title('Variance and\n First Covariance', fontsize=17)
+    panel2.set_title('Covariance $(\Delta y_t, \Delta y_{t+n})$ - BPP (2008)', fontsize=17)
+    #panel3.set_title('First Few Variances', fontsize=17)
+    panel4.set_title('Var$(\Delta^n y)/(n-1/3)$ - Carroll Samwick (1998)', fontsize=17)
+    
+    panel1.set_xlabel("Time Difference (n)", fontsize=15)
+    panel2.set_xlabel("Time Difference (n)", fontsize=15)
+    #panel3.set_xlabel("Time Difference (n)", fontsize=15)
+    panel4.set_xlabel("Time Difference (n)", fontsize=15)
+    
+    panel1.set_ylabel("Covariance", fontsize=15)
+    #panel2.set_ylabel("Covariance", fontsize=12)
+    #panel3.set_ylabel("Variance", fontsize=15)
+    panel4.set_ylabel("Var$(\Delta^n y)/(n-1/3)$", fontsize=15)
+    
+    #plot user defined
+    if (half_life!=0.0):
+        omega = np.log(2)/half_life
+    else:
+        omega = 1.0 # use dummy value for omega, and replace with a 'bonus' type shock instead - this is equivalent to zero half life
+        bonus = 1.0
+    user_params = np.array([perm_var,tran_var,omega,bonus])
+    user_cov_continuous = model_covariance(user_params,T,model="PermTranBonus_continuous")
+    user_CS_continuous = CS_from_BPP(user_cov_continuous,T)[0:T] 
+    user_cov_continuous = user_cov_continuous[0:T]
+    
+    var_monthly_weights = None
+    user_cov_monthly = model_covariance(user_params,T,model="PermTranBonus_monthly",var_monthly_weights=var_monthly_weights)
+    user_CS_monthly = CS_from_BPP(user_cov_monthly,T)[0:T] 
+    user_cov_monthly = user_cov_monthly[0:T]
+    
+    user_params_MA1 = np.array([perm_var,tran_var,theta,0.0]) # No bonus in MA1 models
+    user_cov_annual = model_covariance(user_params_MA1,T,model="PermTranBonus_annual")
+    user_CS_annual = CS_from_BPP(user_cov_annual,T)[0:T] 
+    user_cov_annual = user_cov_annual[0:T]
+    
+    user_cov_MA1_monthly = model_covariance(user_params_MA1,T,model="PermTranBonus_MA1_monthly",var_monthly_weights=var_monthly_weights)
+    user_CS_MA1_monthly = CS_from_BPP(user_cov_MA1_monthly,T)[0:T] 
+    user_cov_MA1_monthly = user_cov_MA1_monthly[0:T]
+    
+    user_panel1, = panel1.plot(user_cov_continuous[0:3], color="orange")
+    user_panel2, = panel2.plot(user_cov_continuous, color="orange", label='Baseline Continuous Time Model')
+    panel4.plot(CS_Ndiff,user_CS_continuous/CS_moments_factor, color="orange", label='Baseline Continuous Time Model')
+    
+    user_panel1, = panel1.plot(user_cov_monthly[0:3], color="red")
+    user_panel2, = panel2.plot(user_cov_monthly, color="red", label='Monthly Model')
+    panel4.plot(CS_Ndiff,user_CS_monthly/CS_moments_factor, color="red", label='Monthly Model')
+    
+    user_panel1, = panel1.plot(user_cov_annual[0:3], color="green")
+    user_panel2, = panel2.plot(user_cov_annual, color="green", label='Annual MA(1) Model')
+    panel4.plot(CS_Ndiff,user_CS_annual/CS_moments_factor, color="green", label='Annual MA(1) Model')
+    
+    user_panel1, = panel1.plot(user_cov_MA1_monthly[0:3], color="purple")
+    user_panel2, = panel2.plot(user_cov_MA1_monthly, color="purple", label='Monthly \"MA(1)\" Model')
+    panel4.plot(CS_Ndiff,user_CS_MA1_monthly/CS_moments_factor, color="purple", label='Monthly \"MA(1)\" Model')
+    
+    panel2.legend(loc='lower right', prop={'size': 12}, ncol=2, frameon=False)
+    panel4.legend(loc='lower left', prop={'size': 12}, ncol=2, frameon=False)
+    panel1.axhline(y=0, color='k',linewidth=1.0)
+    panel2.axhline(y=0, color='k',linewidth=1.0)
+    #panel3.axhline(y=0, color='k',linewidth=1.0)
+    panel4.axhline(y=0, color='k',linewidth=1.0)
+    
+    panel1.set_ylim((-0.004,0.018))
+    panel2.set_ylim((-0.002,0.0004))
+    panel4.set_ylim((0.0,0.025))
+
+
+# %% {"code_folding": [0]}
+# Setup widgets
+perm_var_widget2 = widgets.FloatSlider(
+    value=estimates[0],
+    min=0,
+    max=0.02,
+    step=0.001,
+    description='Perm Var',
+    disabled=False,
+    continuous_update=cont_update,
+    orientation=orientation,
+    readout=True,
+    readout_format='.4f',
+    layout=widgets.Layout(height = slider_height, grid_area='perm_var')
+)
+tran_var_widget2 = widgets.FloatSlider(
+    value=estimates[1],
+    min=0,
+    max=0.02,
+    step=0.001,
+    description='Tran Var',
+    disabled=False,
+    continuous_update=cont_update,
+    orientation=orientation,
+    readout=True,
+    readout_format='.4f',
+    layout=widgets.Layout(height = slider_height, grid_area='tran_var')
+)
+half_life_widget2 = widgets.FloatSlider(
+    value=np.log(2)/estimates[2],
+    min=0,
+    max=5.0,
+    step=0.1,
+    description='Half Life',
+    disabled=False,
+    continuous_update=cont_update,
+    orientation=orientation,
+    readout=True,
+    readout_format='.1f',
+    layout=widgets.Layout(height = slider_height, grid_area='haf_life')
+)
+bonus_widget2 = widgets.FloatSlider(
+    value=estimates[3],
+    min=0,
+    max=1.0,
+    step=0.05,
+    description='Bonus',
+    disabled=False,
+    continuous_update=cont_update,
+    orientation=orientation,
+    readout=True,
+    readout_format='.2f',
+    layout=widgets.Layout(height = slider_height, grid_area='bonus___')
+)
+theta_widget2 = widgets.FloatSlider(
+    value=estimates[4].astype(bool),
+    min=0.0,
+    max=1.0,
+    step=0.001,
+    description='MA(1) theta',
+    disabled=False,
+    continuous_update=cont_update,
+    orientation=orientation,
+    readout=True,
+    readout_format='.4f',
+    layout=widgets.Layout(height = slider_height, grid_area='theta___')
+)
+month_list = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
+perm_monthly_weight_list = []
+for i in range(12):
+    perm_monthly_weight_list.append(widgets.BoundedFloatText(
+                        value=1.0,
+                        description='',#month_list[i],
+                        disabled=False,
+                        min = 0.0,
+                        step=0.1,
+                        layout=widgets.Layout(width = '100%', grid_area = 'perm_'+month_list[i])
+                            ))
+tran_monthly_weight_list = []
+for i in range(12):
+    tran_monthly_weight_list.append(widgets.BoundedFloatText(
+                        value=1.0,
+                        description='',#month_list[i],
+                        disabled=False,
+                        min = 0.0,
+                        step=0.1,
+                        layout=widgets.Layout(width = '100%', grid_area = 'tran_'+month_list[i])
+                            ))
+monthly_button_list = []
+for i in range(12):
+    monthly_button_list.append(widgets.Button(
+                        description=month_list[i],
+                        layout=widgets.Layout(width = '100%',grid_area = 'list_'+month_list[i])
+                            ))
+perm_var_button = widgets.Button(description='Permanent Variance Weights',
+                        layout=widgets.Layout(width = '100%',grid_area = 'perm_wgt'))
+tran_var_button = widgets.Button(description='Transitory Variance Weights',
+                        layout=widgets.Layout(width = '100%',grid_area = 'tran_wgt'))
+monthy_weights_widget = widgets.GridBox(children=[empty, perm_var_button, tran_var_button]+perm_monthly_weight_list+tran_monthly_weight_list+monthly_button_list,
+        layout=widgets.Layout(
+            width='90%',
+            grid_template_rows='auto',
+            grid_template_columns='27% 6% 6% 6% 6% 6% 6% 6% 6% 6% 6% 6% 6%',
+            grid_template_areas='''
+            "empty___ list_Jan list_Feb list_Mar list_Apr list_May list_Jun list_Jul list_Aug list_Sep list_Oct list_Nov list_Dec"
+            "perm_wgt perm_Jan perm_Feb perm_Mar perm_Apr perm_May perm_Jun perm_Jul perm_Aug perm_Sep perm_Oct perm_Nov perm_Dec"
+            "tran_wgt tran_Jan tran_Feb tran_Mar tran_Apr tran_May tran_Jun tran_Jul tran_Aug tran_Sep tran_Oct tran_Nov tran_Dec"
+            ''')
+       )
+display(monthy_weights_widget)
+
+# %%
+plot_time_aggregation(estimates[0],estimates[1],np.log(2)/estimates[2],estimates[3],0.0)
+
+# %% [markdown]
+# # Heterogeneity in Income Processes
+#
+
 # %% {"code_folding": []}
 # Plot parameter estimates by selected quantiles
 widgets.interact(plot_by_subgroup,subgroup_stub=subgroup_widget, T=widgets.fixed(T), init_params=widgets.fixed(init_params), optimize_index=widgets.fixed(optimize_index), bounds=widgets.fixed(bounds));
@@ -583,7 +826,6 @@ widgets.interact(plot_by_subgroup,subgroup_stub=subgroup_widget, T=widgets.fixed
 #
 # Documentation and pedagogical description of what is going on
 #
-# Add PSID data
 #
 # Add Norwegian data
 #

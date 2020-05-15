@@ -273,10 +273,10 @@ def impact_matrix_perm(var_perm, T, num_months=12, var_weights = None):
             impact_matrix[year+1,k] += (var_weights[month]*var_perm[year+1])**0.5 * (k-(year+1)*num_months)/(1.0*num_months)
     return impact_matrix
 
-def impact_matrix_MA1(var_tran, omega, T, num_months=12, var_weights = None):
+def impact_matrix_MA1(var_tran, theta, T, num_months=12, var_weights = None):
     '''
       Calculates the "impact matrix" for a "MA1" shock - in fact a shock in
-      which income takes one value for 12 months, and then omega times that
+      which income takes one value for 12 months, and then theta times that
       value for the second month. Replicates an MA1 process if all the shocks
       happen in the first month.
       Each row is a year [0, 1,..., T] 
@@ -294,48 +294,108 @@ def impact_matrix_MA1(var_tran, omega, T, num_months=12, var_weights = None):
         var_tran = var_tran*np.ones(T+1)
     elif len(var_tran)!=T+1:
         return "var_tran must be a float or array of length T+1"
-    if isinstance(omega, (np.floating, float)):
-        omega = omega*np.ones(T+1)
-    elif len(omega)!=T+1:
-        return "omega must be a float or array of length T+1"
+    if isinstance(theta, (np.floating, float)):
+        theta = theta*np.ones(T+1)
+    elif len(theta)!=T+1:
+        return "theta must be a float or array of length T+1"
     
     K = (T+3)*num_months
     impact_matrix = np.zeros((T,K))
     for k in range(K):
         month = k%num_months # this is the modulo operator
-        year_shock = max(0, np.floor(k/(num_months*1.0)).astype(int) - 3) #var_tran is fixed at the year -1 value for all the pre-periods
+        year_shock = max(0, np.floor(k/(num_months*1.0)).astype(int) - 2) #var_tran is fixed at the year -1 value for all the pre-periods
         year = np.floor(k/(num_months*1.0)).astype(int)-3  # start with shocks that happen in year -1, as these impact the change in income in period 0 (negaitively)
         month = k%num_months # this is the modulo operator
         if year>=0:
             impact_matrix[year,k]   +=  (var_weights[month]*var_tran[year_shock])**0.5 * (num_months-month)/(1.0*num_months)
         if year>=-1 and year<=T-2:
             impact_matrix[year+1,k] +=  (var_weights[month]*var_tran[year_shock])**0.5 *(2*month-num_months)/(1.0*num_months)
-            impact_matrix[year+1,k] +=  omega[year_shock] * (var_weights[month]*var_tran[year_shock])**0.5 *(num_months-month)/(1.0*num_months)
+            impact_matrix[year+1,k] +=  theta[year_shock] * (var_weights[month]*var_tran[year_shock])**0.5 *(num_months-month)/(1.0*num_months)
         if year>=-2 and year<=T-3:
-            impact_matrix[year+2,k] +=  omega[year_shock] * (var_weights[month]*var_tran[year_shock])**0.5 *(2*month-num_months)/(1.0*num_months)
+            impact_matrix[year+2,k] +=  theta[year_shock] * (var_weights[month]*var_tran[year_shock])**0.5 *(2*month-num_months)/(1.0*num_months)
             impact_matrix[year+2,k] +=  -(var_weights[month]*var_tran[year_shock])**0.5 *month/(1.0*num_months)
         if year<=T-4:
-            impact_matrix[year+3,k] +=  -omega[year_shock] * (var_weights[month]*var_tran[year_shock])**0.5 *month/(1.0*num_months)
+            impact_matrix[year+3,k] +=  -theta[year_shock] * (var_weights[month]*var_tran[year_shock])**0.5 *month/(1.0*num_months)
     return impact_matrix
 
-def implied_inc_cov_composite_continuous(params,T):
+def implied_cov_permshk_annual(var_perm, T):
+  '''
+  Calculates the covariance matrix for permanent shocks that arrive in discrete,
+  annual periods (like BPP 2008)
+  '''
+  if isinstance(var_perm, (np.floating, float)):
+      var_perm = np.ones(T+1)*var_perm # variance of permanent shock
+  elif len(var_perm)!=T+1:
+      return "Number of parameters must be equal to 1 or T+1"
+  
+  # Create covariance matrix
+  cov_y  = np.zeros((T,T)) #/* Income */
+  for j in range(T):
+    cov_y[j,j] = var_perm[j+1]
+  vech_indicesT = vech_indices(T)
+  cov_y_vec=cov_y[vech_indicesT]
+  return cov_y_vec
+
+def implied_cov_MA1_annual(var_tran, theta, T):
+  '''
+  Calculates the covariance matrix for MA(1) shocks that arrive in discrete
+  annual periods (like BPP 2008)
+  '''
+  if isinstance(var_tran, (np.floating, float)):
+      var_tran = var_tran*np.ones(T+1)
+  elif len(var_tran)!=T+1:
+      return "var_tran must be a float or array of length T+1"
+  if isinstance(theta, (np.floating, float)):
+      theta = theta*np.ones(T+1)
+  else:
+      return "theta must be a float or array of length T+1"
+  
+  # Create covariance matrix
+  cov_y  = np.zeros((T,T)) #/* Income */
+  for j in range(T):
+    cov_y[j,j] = var_tran[j+1]+(1-theta[j])**2*var_tran[j]+theta[max(j-1,0)]**2*var_tran[max(j-1,0)]
+  for j in range(1,T):
+    cov_y[j-1,j] = -(1-theta[j])*var_tran[j]+theta[max(j-1,0)]*(1-theta[max(j-1,0)])*var_tran[max(j-1,0)]
+    cov_y[j,j-1] = cov_y[j-1,j]
+  for j in range(2,T):
+    cov_y[j-2,j]=-theta[max(j-1,0)]*var_tran[max(j-1,0)]
+    cov_y[j,j-2] = cov_y[j-2,j]
+  vech_indicesT = vech_indices(T)
+  cov_y_vec=cov_y[vech_indicesT]
+  return cov_y_vec
+
+def composite_parameter_read(params,T):
+    '''
+    Reads in a vector of parameters and interprets it as parameters for 
+    the standard composite model
+    '''
     block_len = T+1
-    if len(params)==5:
+    if len(params)==4 or len(params)==5:
         var_perm = params[0]
         var_tran = params[1]
         omega    = params[2]
         bonus    = params[3]
-        rho      = params[4]
-    elif len(params)==block_len*5:
+        if len(params)==5:
+            rho      = params[4]
+        else:
+            rho = 0.0
+    elif len(params)==block_len*4 or len(params)==block_len*5:
         var_perm = params[0:block_len]
         var_tran = params[  block_len:2*block_len]
         omega    = params[2*block_len:3*block_len]
         bonus    = params[3*block_len:4*block_len]
-        rho      = params[4*block_len:5*block_len]
-        if np.array_equal(rho, np.zeros_like(rho)):
+        if len(params)==block_len*5:
+            rho      = params[4*block_len:5*block_len]
+            if np.array_equal(rho, np.zeros_like(rho)):
+                rho = 0.0
+        else:
             rho = 0.0
     else:
-        return "params must be length 5 or 5*(T+1)"
+        return "params must be length 4,5, 4*(T+1) or 5*(T+1)" # If rho is missing, assume zero
+    return var_perm, var_tran, omega, bonus, rho
+
+def implied_inc_cov_composite_continuous(params,T):
+    var_perm, var_tran, omega, bonus, rho = composite_parameter_read(params,T)
     if rho==0.0:
         perm_inc_cov = implied_cov_permshk_continuous(var_perm,T)
     else:
@@ -345,28 +405,81 @@ def implied_inc_cov_composite_continuous(params,T):
     implied_inc_cov_composite = perm_inc_cov + bonus_inc_cov + trandecay_inc_cov
     return implied_inc_cov_composite
 
-def implied_inc_cov_composite_monthly(params,T):
-    var_perm = params[0]
-    var_tran = params[1]
-    omega    = params[2]
-    bonus    = params[3]
-    impact_tran = impact_matrix_tran(var_tran*(1-bonus),omega,T)
+def implied_inc_cov_composite_monthly(params,T, var_monthly_weights=None):
+    var_perm, var_tran, omega, bonus, rho = composite_parameter_read(params,T)
+    if (rho!=0.0):
+        return "Monthly model cannot handle permanent shock decay"
+    if (var_monthly_weights is not None):
+        if len(var_monthly_weights)==2:
+            var_perm_weights = var_monthly_weights[0]
+            var_tran_weights = var_monthly_weights[1]
+        else:
+            var_perm_weights = var_monthly_weights
+            var_tran_weights = var_monthly_weights
+        num_months = len(var_perm_weights) 
+    else:
+        num_months = 12
+        var_perm_weights = np.array([1.0]*num_months)
+        var_tran_weights = np.array([1.0]*num_months)
+            
+    impact_tran = impact_matrix_tran(var_tran*(1-bonus),omega,T,num_months=num_months,var_weights=var_tran_weights)
     trandecay_inc_cov = implied_inc_cov_monthly(impact_tran)
-    impact_bonus = impact_matrix_bonus(var_tran*bonus,T)
+    impact_bonus = impact_matrix_bonus(var_tran*bonus,T,num_months=num_months,var_weights=var_tran_weights)
     bonus_inc_cov = implied_inc_cov_monthly(impact_bonus)
-    impact_perm = impact_matrix_perm(var_perm,T)
+    impact_perm = impact_matrix_perm(var_perm,T,num_months=num_months,var_weights=var_perm_weights)
     perm_inc_cov = implied_inc_cov_monthly(impact_perm)
-    
-#    perm_inc_cov = implied_cov_permshk_continuous(var_perm,T)
-#    bonus_inc_cov = implied_cov_bonusshk_continuous(var_tran*bonus,T)
-#    trandecay_inc_cov = implied_cov_expdecayshk_continuous(var_tran*(1-bonus),omega,T)
-    
     implied_inc_cov_composite = perm_inc_cov + bonus_inc_cov + trandecay_inc_cov
     return implied_inc_cov_composite
 
-def model_covariance(params, T, model, var_monthly_weights):
-    if (model=="PermTranBonus_continuous"): # Parameters should be length 5 (var_perm,var_tran,omega,bonus and perm_decay)
+def implied_inc_cov_composite_MA1_monthly(params,T, var_monthly_weights=None):
+    '''
+    Same as implied_inc_cov_composite_monthly, except the exponential decay
+    transitory component is replaced by an MA1 component
+    '''
+    var_perm, var_tran, theta, bonus, rho = composite_parameter_read(params,T)
+    if (rho!=0.0):
+        return "Monthly model cannot handle permanent shock decay"
+    if (var_monthly_weights is not None):
+        if len(var_monthly_weights)==2:
+            var_perm_weights = var_monthly_weights[0]
+            var_tran_weights = var_monthly_weights[1]
+        else:
+            var_perm_weights = var_monthly_weights
+            var_tran_weights = var_monthly_weights
+        num_months = len(var_perm_weights)  
+    else:
+        num_months = 12
+        var_perm_weights = np.array([1.0]*num_months)
+        var_tran_weights = np.array([1.0]*num_months)
+              
+    impact_tran = impact_matrix_MA1(var_tran*(1-bonus),theta,T,num_months,var_tran_weights)
+    trandecay_inc_cov = implied_inc_cov_monthly(impact_tran)
+    impact_bonus = impact_matrix_bonus(var_tran*bonus,T,num_months,var_tran_weights)
+    bonus_inc_cov = implied_inc_cov_monthly(impact_bonus)
+    impact_perm = impact_matrix_perm(var_perm,T,num_months,var_perm_weights)
+    perm_inc_cov = implied_inc_cov_monthly(impact_perm)
+    implied_inc_cov_composite = perm_inc_cov + bonus_inc_cov + trandecay_inc_cov
+    return implied_inc_cov_composite
+
+def implied_inc_cov_composite_annual(params,T):
+    var_perm, var_tran, omega, bonus, rho = composite_parameter_read(params,T)
+    if (rho!=0.0):
+        return "Annual model cannot handle permanent shock decay"
+    perm_inc_cov = implied_cov_permshk_annual(var_perm,T)
+    bonus_inc_cov = implied_cov_bonusshk_continuous(var_tran*bonus,T) #annual model same as continuous time for bonus shocks
+    MA1_inc_cov = implied_cov_MA1_annual(var_tran*(1-bonus),omega,T)
+    implied_inc_cov_composite = perm_inc_cov + bonus_inc_cov + MA1_inc_cov
+    return implied_inc_cov_composite
+
+def model_covariance(params, T, model="PermTranBonus_continuous", var_monthly_weights=None):
+    if (model=="PermTranBonus_continuous"): 
         model_cov = implied_inc_cov_composite_continuous(params, T)
+    if (model=="PermTranBonus_annual"): 
+        model_cov = implied_inc_cov_composite_annual(params, T)
+    if (model=="PermTranBonus_monthly"): 
+        model_cov = implied_inc_cov_composite_monthly(params, T, var_monthly_weights)
+    if (model=="PermTranBonus_MA1_monthly"): 
+        model_cov = implied_inc_cov_composite_MA1_monthly(params, T, var_monthly_weights)
     return model_cov
 
 def parameter_estimation(empirical_moments, Omega, T, init_params, optimize_index=None, bounds=None, model="PermTranBonus_continuous", var_monthly_weights=None):
