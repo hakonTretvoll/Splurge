@@ -180,7 +180,11 @@ def compare_to_moments(compare, quantile):
     return compare_moments_inc, compare_Omega_inc, T_compare
 out_plt_moments=widgets.Output()
 out_plt_moments.layout.height = '650px'
+dont_update = False
 def plot_moments(perm_var,tran_var,half_life,bonus,perm_decay,compare="All Households",quantile=1):
+    if dont_update:
+        print('dont update')
+        return
     fig = plt.figure(figsize=(14, 9),constrained_layout=True)
     gs = fig.add_gridspec(2, 13)
     panel1 = fig.add_subplot(gs[0, 0:3])
@@ -295,9 +299,10 @@ def plot_moments(perm_var,tran_var,half_life,bonus,perm_decay,compare="All House
     with out_plt_moments:
         clear_output()
         display(fig)
+    plt.close(fig)
 
 
-# %% {"code_folding": [0, 4, 16, 28, 40, 52, 64, 67, 82, 96, 102, 110, 116, 121, 127, 132, 138, 143, 149, 154, 160, 165, 171, 174, 177]}
+# %% {"code_folding": [0, 4, 16, 28, 40, 52, 64, 85, 99, 105, 113, 119, 124, 130, 135, 141, 146, 152, 157, 163, 168, 174, 177, 180]}
 #set up widgets with default values for plot
 cont_update = False
 orientation = 'vertical'
@@ -374,11 +379,14 @@ def estimate_button_clicked(b):
     quantile = quantile_widget.value
     compare_moments_inc, compare_Omega_inc, T_compare  = compare_to_moments(compare, quantile)
     estimates, estimate_se = parameter_estimation(compare_moments_inc, compare_Omega_inc, T_compare, init_params_with_fix, bounds=bounds, optimize_index=optimize_index)  
-    perm_var_widget.value = estimates[0]
+    global dont_update
+    dont_update=True
     tran_var_widget.value = estimates[1]
     half_life_widget.value = np.log(2)/estimates[2]
     bonus_widget.value = estimates[3]
     perm_decay_widget.value = estimates[4]
+    dont_update=False
+    perm_var_widget.value = estimates[0]
 estimate_button.on_click(estimate_button_clicked)
 compare_widget = widgets.Dropdown(
     options=['All Households',
@@ -513,12 +521,14 @@ graph_update.update()
 #
 # Work in progress...
 
-# %% {"code_folding": [0]}
+# %% {"code_folding": [0, 4]}
 # Define plot function to show how time aggregation affects parameters
 
 out_plt_time_agg=widgets.Output()
 out_plt_time_agg.layout.height = '650px'
 def plot_time_aggregation(perm_var,tran_var,half_life,bonus,theta,var_monthly_weights):
+    if dont_update:
+        return
     fig = plt.figure(figsize=(14, 9),constrained_layout=True)
     gs = fig.add_gridspec(2, 13)
     panel1 = fig.add_subplot(gs[0, 0:3])
@@ -618,10 +628,11 @@ def plot_time_aggregation(perm_var,tran_var,half_life,bonus,theta,var_monthly_we
     with out_plt_time_agg:
         clear_output()
         display(fig)
+    plt.close(fig)
 
 
 
-# %% {"code_folding": [0, 1, 13, 25, 37, 49, 63, 74, 85, 90, 92, 94, 106, 111, 115, 119, 121, 151, 155, 157, 187, 193, 223, 227, 229, 259, 285]}
+# %% {"code_folding": [0, 1, 13, 25, 37, 49, 63, 74, 85, 90, 92, 94, 106, 111, 115, 119, 121, 154, 158, 160, 193, 199, 232, 236, 238, 271, 297]}
 # Setup widgets
 perm_var_widget2 = widgets.FloatSlider(
     value=estimates[0],
@@ -751,10 +762,13 @@ def estimate_baseline_button_clicked(b):
                         0.0])  # decay parameter of perm shock
     optimize_index = np.array([0, 1, 2, 3, -1])
     estimates, estimate_se = parameter_estimation(empirical_moments_inc, Omega_inc, T, init_params, bounds=bounds,model="PermTranBonus_continuous", optimize_index=optimize_index)  
-    perm_var_widget2.value = estimates[0]
+    global dont_update
+    dont_update=True
     tran_var_widget2.value = estimates[1]
     half_life_widget2.value = np.log(2)/estimates[2]
     bonus_widget2.value = estimates[3]
+    dont_update=False
+    perm_var_widget2.value = estimates[0]
     with output_baseline[0]:
         clear_output()
         print("%.4f" % estimates[0])
@@ -787,10 +801,13 @@ def estimate_monthly_button_clicked(b):
                         0.0])  # decay parameter of perm shock
     optimize_index = np.array([0, 1, 2, 3, -1])
     estimates, estimate_se = parameter_estimation(empirical_moments_inc, Omega_inc, T, init_params,model="PermTranBonus_monthly", bounds=bounds, optimize_index=optimize_index,var_monthly_weights=monthly_weights)  
-    perm_var_widget2.value = estimates[0]
+    global dont_update
+    dont_update=True
     tran_var_widget2.value = estimates[1]
     half_life_widget2.value = np.log(2)/estimates[2]
     bonus_widget2.value = estimates[3]
+    dont_update=False
+    perm_var_widget2.value = estimates[0]
     with output_monthly[0]:
         clear_output()
         print("%.4f" % estimates[0])
@@ -825,9 +842,12 @@ def estimate_annual_button_clicked(b):
     init_params_MA = init_params
     init_params_MA[3] = 0.0 # Set bonus to zero
     estimates, estimate_se = parameter_estimation(empirical_moments_inc, Omega_inc, T, init_params_MA,model="PermTranBonus_annual", bounds=bounds, optimize_index=optimize_index,var_monthly_weights=monthly_weights)  
-    perm_var_widget2.value = estimates[0]
+    global dont_update
+    dont_update=True
     tran_var_widget2.value = estimates[1]
     theta_widget2.value    = estimates[2]
+    dont_update=False
+    perm_var_widget2.value = estimates[0]
     with output_annual[0]:
         clear_output()
         print("%.4f" % estimates[0])
@@ -861,9 +881,12 @@ def estimate_monthly_MA1_button_clicked(b):
     init_params_MA = init_params
     init_params_MA[3] = 0.0 # Set bonus to zero
     estimates, estimate_se = parameter_estimation(empirical_moments_inc, Omega_inc, T, init_params_MA,model="PermTranBonus_MA1_monthly", bounds=bounds, optimize_index=optimize_index,var_monthly_weights=monthly_weights)  
-    perm_var_widget2.value = estimates[0]
+    global dont_update
+    dont_update=True
     tran_var_widget2.value = estimates[1]
     theta_widget2.value    = estimates[2]
+    dont_update=False
+    perm_var_widget2.value = estimates[0]
     with output_monMA1[0]:
         clear_output()
         print("%.4f" % estimates[0])
@@ -930,7 +953,7 @@ on_weight_change(None)
 # # Heterogeneity in Income Processes
 #
 
-# %% {"code_folding": [0]}
+# %% {"code_folding": [0, 4]}
 # Define plotting function for parameters by quantiles
 
 out_plt_subgroup=widgets.Output()
@@ -980,6 +1003,7 @@ def plot_by_subgroup(subgroup_stub, T, init_params, optimize_index=optimize_inde
     with out_plt_subgroup:
         clear_output()
         display(fig)
+    plt.close(fig)
     
 subgroup_widget = widgets.Dropdown(
     options=['Liquid Wealth (quintiles)',
@@ -993,7 +1017,7 @@ subgroup_widget = widgets.Dropdown(
     disabled=False,)
 
 
-# %% {"code_folding": []}
+# %% {"code_folding": [0]}
 # Plot parameter estimates by selected quantiles
 widgets.interact(plot_by_subgroup,subgroup_stub=subgroup_widget, T=widgets.fixed(T), init_params=widgets.fixed(init_params), optimize_index=widgets.fixed(optimize_index), bounds=widgets.fixed(bounds));
 display(out_plt_subgroup)
@@ -1004,12 +1028,13 @@ display(out_plt_subgroup)
 #
 # Documentation and pedagogical description of what is going on
 #
-#
 # Add Norwegian data
 #
-# Allow variance (and other parameters?) to vary over time
+# Allow variance (and other parameters?) to vary over time (done in code - need to add to notebook)
 #
-# Allow for user-defined shape of transitory shock
+# Allow for correlation between perm + transitory shocks
+#
+# Allow for user-defined shape of transitory shock (not sure it is useful - basically done in code)
 #
 # Do consumption response!
 #
