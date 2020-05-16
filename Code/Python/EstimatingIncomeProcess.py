@@ -52,6 +52,8 @@ from pathlib import Path
 import ipywidgets as widgets
 from IPython.display import display,clear_output
 from min_distance import parameter_estimation, parameter_estimation_by_subgroup, vech_indices, model_covariance
+# %matplotlib agg
+# %matplotlib agg
 
 
 # %% {"code_folding": [0]}
@@ -126,7 +128,7 @@ for t in range(T):
     CS_moments_mean[t] = np.dot(this_diag,CS_moments)
 
 
-# %% {"code_folding": [0, 2, 50]}
+# %% {"code_folding": [0, 2]}
 # Define plotting function
 
 def compare_to_moments(compare, quantile):
@@ -176,7 +178,8 @@ def compare_to_moments(compare, quantile):
         perm_var_widget.max = 0.02
         T_compare = 12
     return compare_moments_inc, compare_Omega_inc, T_compare
-
+out_plt_moments=widgets.Output()
+out_plt_moments.layout.height = '650px'
 def plot_moments(perm_var,tran_var,half_life,bonus,perm_decay,compare="All Households",quantile=1):
     fig = plt.figure(figsize=(14, 9),constrained_layout=True)
     gs = fig.add_gridspec(2, 13)
@@ -289,6 +292,9 @@ def plot_moments(perm_var,tran_var,half_life,bonus,perm_decay,compare="All House
     panel1.set_ylim(np.array([np.min(np.array([-0.0025,1.1*mean_compare_moments[1]])),np.max(np.array([0.0125,1.1*mean_compare_moments[0]]))]))
     panel2.set_ylim(np.array([np.min(np.array([-0.0013,1.1*mean_compare_moments[1]])), np.max(np.array([0.0003,1.1*np.max(mean_compare_moments[2:T]),-1.1*np.min(mean_compare_moments[4:T])]))]))
     panel4.set_ylim(np.array([0.0,np.max(np.array([0.02,1.1*CS_mean_compare_moments[0]/CS_moments_factor[0]]))]))
+    with out_plt_moments:
+        clear_output()
+        display(fig)
 
 
 # %% {"code_folding": [0, 4, 16, 28, 40, 52, 64, 67, 82, 96, 102, 110, 116, 121, 127, 132, 138, 143, 149, 154, 160, 165, 171, 174, 177]}
@@ -324,7 +330,7 @@ half_life_widget = widgets.FloatSlider(
     value=np.log(2)/estimates[2],
     min=0,
     max=5.0,
-    step=0.1,
+    step=0.01,
     description='Half Life',
     disabled=False,
     continuous_update=cont_update,
@@ -336,7 +342,7 @@ bonus_widget = widgets.FloatSlider(
     value=estimates[3],
     min=0,
     max=1.0,
-    step=0.05,
+    step=0.01,
     description='Bonus',
     disabled=False,
     continuous_update=cont_update,
@@ -495,76 +501,19 @@ control_panel = widgets.GridBox(children=[empty,
             ''')
        )
 
-
-# %% {"code_folding": [0, 1, 44]}
-# Define plotting function for parameters by quantiles
-def plot_by_subgroup(subgroup_stub, T, init_params, optimize_index=optimize_index, bounds=bounds):
-    subgroup_names = []
-    if (subgroup_stub=="Liquid Wealth (quintiles)"):
-        subgroup_stub='moments_by_liquid_wealth_quantile'
-        num_quantiles=5
-    elif (subgroup_stub=="Net Wealth (quintiles)"):
-        subgroup_stub='moments_by_net_wealth_quantile'
-        num_quantiles=5
-    elif (subgroup_stub=="Income (deciles)"):
-        subgroup_stub='moments_by_Income_quantile'
-        num_quantiles=10
-    elif (subgroup_stub=="Net Nominal Position (deciles)"):
-        subgroup_stub='moments_by_NNP_quantile'
-        num_quantiles=10
-    elif (subgroup_stub=="Interest Rate Exposure (deciles)"):
-        subgroup_stub='moments_by_URE_quantile'
-        num_quantiles=10
-    elif (subgroup_stub=="Consumption (deciles)"):
-        subgroup_stub='moments_by_MeanCons_quantile'
-        num_quantiles=10
-    for i in range(num_quantiles):
-        subgroup_names += ["X"+str(i+1)]
-    estimates, standard_errors = parameter_estimation_by_subgroup(moments_BPP_dir,subgroup_stub,subgroup_names, T, init_params, optimize_index=optimize_index, bounds=bounds)
-    fig = plt.figure(figsize=(14, 7),constrained_layout=True)
-    fig.figsize=(20,40)
-    gs = fig.add_gridspec(2, 2)
-    panel1 = fig.add_subplot(gs[0, 0])
-    panel2 = fig.add_subplot(gs[0, 1])
-    panel3 = fig.add_subplot(gs[1, 0])
-    panel4 = fig.add_subplot(gs[1, 1])
-    panel1.bar(np.array(range(num_quantiles))+1,estimates[:,0])
-    panel2.bar(np.array(range(num_quantiles))+1,estimates[:,1])
-    panel3.bar(np.array(range(num_quantiles))+1,np.log(2)/estimates[:,2])
-    panel4.bar(np.array(range(num_quantiles))+1,estimates[:,3])
-    panel1.set_title("Permanent Variance")
-    panel2.set_title("Transitory Variance")
-    panel3.set_title("Half-life of Somewhat Transitory Shock")
-    panel4.set_title("Share that is Completely Transitory")
-    panel1.set_xlabel("Quantile")
-    panel2.set_xlabel("Quantile")
-    panel3.set_xlabel("Quantile")
-    panel4.set_xlabel("Quantile")
-    
-subgroup_widget = widgets.Dropdown(
-    options=['Liquid Wealth (quintiles)',
-             'Net Wealth (quintiles)',
-             'Income (deciles)', 
-             'Net Nominal Position (deciles)',
-             'Interest Rate Exposure (deciles)',
-             'Consumption (deciles)'],
-    value='Income (deciles)',
-    description='Subgroup',
-    disabled=False,)
-
-
 # %% {"code_folding": [0]}
 # Plot BPP and Carroll Samwick moments, with estimates and user-defined parameters
 display(control_panel)
+display(out_plt_moments)
 graph_update.update()
-graph_update.children[7]
+
 
 # %% [markdown]
 # # Experimenting with Time Aggregation
 #
 # Work in progress...
 
-# %% {"code_folding": [0, 4]}
+# %% {"code_folding": [0]}
 # Define plot function to show how time aggregation affects parameters
 
 out_plt_time_agg=widgets.Output()
@@ -640,20 +589,20 @@ def plot_time_aggregation(perm_var,tran_var,half_life,bonus,theta,var_monthly_we
     user_CS_MA1_monthly = CS_from_BPP(user_cov_MA1_monthly,T)[0:T] 
     user_cov_MA1_monthly = user_cov_MA1_monthly[0:T]
     
-    user_panel1, = panel1.plot(user_cov_continuous[0:3], color="orange")
-    user_panel2, = panel2.plot(user_cov_continuous, color="orange", label='Baseline Continuous Time Model')
+    user_panel1 = panel1.plot(user_cov_continuous[0:3], color="orange")
+    user_panel2 = panel2.plot(user_cov_continuous, color="orange", label='Baseline Continuous Time Model')
     panel4.plot(CS_Ndiff,user_CS_continuous/CS_moments_factor, color="orange", label='Baseline Continuous Time Model')
     
-    user_panel1, = panel1.plot(user_cov_monthly[0:3], color="red")
-    user_panel2, = panel2.plot(user_cov_monthly, color="red", label='Monthly Model')
+    user_panel1 = panel1.plot(user_cov_monthly[0:3], color="red")
+    user_panel2 = panel2.plot(user_cov_monthly, color="red", label='Monthly Model')
     panel4.plot(CS_Ndiff,user_CS_monthly/CS_moments_factor, color="red", label='Monthly Model')
     
-    user_panel1, = panel1.plot(user_cov_annual[0:3], color="green")
-    user_panel2, = panel2.plot(user_cov_annual, color="green", label='Annual MA(1) Model')
+    user_panel1 = panel1.plot(user_cov_annual[0:3], color="green")
+    user_panel2 = panel2.plot(user_cov_annual, color="green", label='Annual MA(1) Model')
     panel4.plot(CS_Ndiff,user_CS_annual/CS_moments_factor, color="green", label='Annual MA(1) Model')
     
-    user_panel1, = panel1.plot(user_cov_MA1_monthly[0:3], color="purple")
-    user_panel2, = panel2.plot(user_cov_MA1_monthly, color="purple", label='Monthly \"MA(1)\" Model')
+    user_panel1 = panel1.plot(user_cov_MA1_monthly[0:3], color="purple")
+    user_panel2 = panel2.plot(user_cov_MA1_monthly, color="purple", label='Monthly \"MA(1)\" Model')
     panel4.plot(CS_Ndiff,user_CS_MA1_monthly/CS_moments_factor, color="purple", label='Monthly \"MA(1)\" Model')
     
     panel2.legend(loc='lower right', prop={'size': 12}, ncol=2, frameon=False)
@@ -672,7 +621,7 @@ def plot_time_aggregation(perm_var,tran_var,half_life,bonus,theta,var_monthly_we
 
 
 
-# %% {"code_folding": [0, 1, 13, 25, 37, 49, 63, 74, 85, 90, 92, 94, 106, 111, 115, 130]}
+# %% {"code_folding": [0, 1, 13, 25, 37, 49, 63, 74, 85, 90, 92, 94, 106, 111, 115, 119, 121, 151, 155, 157, 187, 193, 223, 227, 229, 259, 285]}
 # Setup widgets
 perm_var_widget2 = widgets.FloatSlider(
     value=estimates[0],
@@ -702,19 +651,19 @@ half_life_widget2 = widgets.FloatSlider(
     value=np.log(2)/estimates[2],
     min=0,
     max=5.0,
-    step=0.1,
+    step=0.01,
     description='Half Life',
     disabled=False,
     continuous_update=cont_update,
     orientation=orientation,
     readout=True,
-    readout_format='.1f',
+    readout_format='.2f',
     layout=widgets.Layout(height = slider_height, grid_area='haf_life'))
 bonus_widget2 = widgets.FloatSlider(
     value=estimates[3],
     min=0,
     max=1.0,
-    step=0.05,
+    step=0.01,
     description='Bonus',
     disabled=False,
     continuous_update=cont_update,
@@ -726,13 +675,13 @@ theta_widget2 = widgets.FloatSlider(
     value=estimates[4].astype(bool),
     min=0.0,
     max=1.0,
-    step=0.001,
-    description='MA(1) theta',
+    step=0.01,
+    description=r'MA(1) $\theta$',
     disabled=False,
     continuous_update=cont_update,
     orientation=orientation,
     readout=True,
-    readout_format='.4f',
+    readout_format='.2f',
     layout=widgets.Layout(height = slider_height, grid_area='theta___'))
 month_list = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
 perm_monthly_weight_list = []
@@ -788,19 +737,174 @@ for i in range(12):
     perm_monthly_weight_list[i].observe(on_weight_change, names=['value'])
     tran_monthly_weight_list[i].observe(on_weight_change, names=['value'])
 
+estimate_baseline_button = widgets.Button(description="Baseline Cont. Time Model",
+                                 layout=widgets.Layout(width='70%', height='30px', grid_area='est_base'),
+                                 justify_self = 'center')
+output_baseline=[]
+for i in range(5):
+    output_baseline.append(widgets.Output(height='100%',width='100%',layout=widgets.Layout(grid_area='out_bas'+str(i))))
+def estimate_baseline_button_clicked(b):
+    init_params = np.array([0.00809118,  #permanent variance
+                        0.00355567,  #transitory variance
+                        1.13118306,    #decay parameter of slightly persistant transitory shock
+                        0.57210194,   #fraction of transitory variance that has no persistence
+                        0.0])  # decay parameter of perm shock
+    optimize_index = np.array([0, 1, 2, 3, -1])
+    estimates, estimate_se = parameter_estimation(empirical_moments_inc, Omega_inc, T, init_params, bounds=bounds,model="PermTranBonus_continuous", optimize_index=optimize_index)  
+    perm_var_widget2.value = estimates[0]
+    tran_var_widget2.value = estimates[1]
+    half_life_widget2.value = np.log(2)/estimates[2]
+    bonus_widget2.value = estimates[3]
+    with output_baseline[0]:
+        clear_output()
+        print("%.4f" % estimates[0])
+    with output_baseline[1]:
+        clear_output()
+        print("%.4f" % estimates[1])
+    with output_baseline[2]:
+        clear_output()
+        half_life = np.log(2)/estimates[2]
+        print("%.2f" % half_life)
+    with output_baseline[3]:
+        clear_output()
+        print("%.2f" % estimates[3])
+    with output_baseline[4]:
+        clear_output()
+        print("N/A") 
+estimate_baseline_button.on_click(estimate_baseline_button_clicked)
+
+estimate_monthly_button = widgets.Button(description="Monthly Model",
+                                 layout=widgets.Layout(width='70%', height='30px', grid_area='est_mont'),
+                                 justify_self = 'center')
+output_monthly=[]
+for i in range(5):
+    output_monthly.append(widgets.Output(height='100%',width='100%',layout=widgets.Layout(grid_area='out_mon'+str(i))))
+def estimate_monthly_button_clicked(b):
+    init_params = np.array([0.00809118,  #permanent variance
+                        0.00355567,  #transitory variance
+                        1.13118306,    #decay parameter of slightly persistant transitory shock
+                        0.57210194,   #fraction of transitory variance that has no persistence
+                        0.0])  # decay parameter of perm shock
+    optimize_index = np.array([0, 1, 2, 3, -1])
+    estimates, estimate_se = parameter_estimation(empirical_moments_inc, Omega_inc, T, init_params,model="PermTranBonus_monthly", bounds=bounds, optimize_index=optimize_index,var_monthly_weights=monthly_weights)  
+    perm_var_widget2.value = estimates[0]
+    tran_var_widget2.value = estimates[1]
+    half_life_widget2.value = np.log(2)/estimates[2]
+    bonus_widget2.value = estimates[3]
+    with output_monthly[0]:
+        clear_output()
+        print("%.4f" % estimates[0])
+    with output_monthly[1]:
+        clear_output()
+        print("%.4f" % estimates[1])
+    with output_monthly[2]:
+        clear_output()
+        half_life = np.log(2)/estimates[2]
+        print("%.2f" % half_life)
+    with output_monthly[3]:
+        clear_output()
+        print("%.2f" % estimates[3])
+    with output_monthly[4]:
+        clear_output()
+        print("N/A") 
+estimate_monthly_button.on_click(estimate_monthly_button_clicked)
+
+estimate_annual_button = widgets.Button(description="Annual MA(1) Model (BPP)",
+                                 layout=widgets.Layout(width='70%', height='30px', grid_area='est_annu'),
+                                 justify_self = 'center')
+output_annual=[]
+for i in range(5):
+    output_annual.append(widgets.Output(height='100%',width='100%',layout=widgets.Layout(grid_area='out_ann'+str(i))))
+def estimate_annual_button_clicked(b):
+    init_params = np.array([0.00809118,  #permanent variance
+                        0.00355567,  #transitory variance
+                        1.13118306,    #decay parameter of slightly persistant transitory shock
+                        0.57210194,   #fraction of transitory variance that has no persistence
+                        0.0])  # decay parameter of perm shock
+    optimize_index = np.array([0, 1, 2, -1, -1])
+    init_params_MA = init_params
+    init_params_MA[3] = 0.0 # Set bonus to zero
+    estimates, estimate_se = parameter_estimation(empirical_moments_inc, Omega_inc, T, init_params_MA,model="PermTranBonus_annual", bounds=bounds, optimize_index=optimize_index,var_monthly_weights=monthly_weights)  
+    perm_var_widget2.value = estimates[0]
+    tran_var_widget2.value = estimates[1]
+    theta_widget2.value    = estimates[2]
+    with output_annual[0]:
+        clear_output()
+        print("%.4f" % estimates[0])
+    with output_annual[1]:
+        clear_output()
+        print("%.4f" % estimates[1])
+    with output_annual[2]:
+        clear_output()
+        print("N/A")
+    with output_annual[3]:
+        clear_output()
+        print("N/A")
+    with output_annual[4]:
+        clear_output()
+        print("%.2f" % estimates[2])
+estimate_annual_button.on_click(estimate_annual_button_clicked)
+
+estimate_monthly_MA1_button = widgets.Button(description="Monthly MA(1) Model",
+                                 layout=widgets.Layout(width='70%', height='30px', grid_area='est_MA1m'),
+                                 justify_self = 'center')
+output_monMA1=[]
+for i in range(5):
+    output_monMA1.append(widgets.Output(height='100%',width='100%',layout=widgets.Layout(grid_area='out_mA1'+str(i))))
+def estimate_monthly_MA1_button_clicked(b):
+    init_params = np.array([0.005,  #permanent variance
+                            0.003,  #transitory variance
+                            0.5,    #decay parameter of slightly persistant transitory shock
+                            0.5,   #fraction of transitory variance that has no persistence
+                            0.0])  # decay parameter of perm shock
+    optimize_index = np.array([0, 1, 2, -1, -1])
+    init_params_MA = init_params
+    init_params_MA[3] = 0.0 # Set bonus to zero
+    estimates, estimate_se = parameter_estimation(empirical_moments_inc, Omega_inc, T, init_params_MA,model="PermTranBonus_MA1_monthly", bounds=bounds, optimize_index=optimize_index,var_monthly_weights=monthly_weights)  
+    perm_var_widget2.value = estimates[0]
+    tran_var_widget2.value = estimates[1]
+    theta_widget2.value    = estimates[2]
+    with output_monMA1[0]:
+        clear_output()
+        print("%.4f" % estimates[0])
+    with output_monMA1[1]:
+        clear_output()
+        print("%.4f" % estimates[1])
+    with output_monMA1[2]:
+        clear_output()
+        print("N/A")
+    with output_monMA1[3]:
+        clear_output()
+        print("N/A")
+    with output_monMA1[4]:
+        clear_output()
+        print("%.2f" % estimates[2])
+estimate_monthly_MA1_button.on_click(estimate_monthly_MA1_button_clicked)
+    
 control_panel2 = widgets.GridBox(children=[empty,
                           perm_var_widget2,
                           tran_var_widget2,
                           half_life_widget2,
                           bonus_widget2,
-                          theta_widget2],
+                          theta_widget2,
+                          estimate_baseline_button,
+                          estimate_monthly_button,
+                          estimate_annual_button,
+                          estimate_monthly_MA1_button,
+                          output_baseline[0],output_baseline[1],output_baseline[2],output_baseline[3],output_baseline[4],
+                          output_monthly[0],output_monthly[1],output_monthly[2],output_monthly[3],output_monthly[4],
+                          output_annual[0],output_annual[1],output_annual[2],output_annual[3],output_annual[4],
+                          output_monMA1[0],output_monMA1[1],output_monMA1[2],output_monMA1[3],output_monMA1[4]],
         layout=widgets.Layout(
             width='90%',
             grid_template_rows='auto auto auto',
             grid_template_columns='35% 10% 10% 10% 10% 10% 10%',
             grid_template_areas='''
             "empty___ empty___ perm_var tran_var haf_life bonus___ theta___"
-            "empty___ empty___ perm_var tran_var haf_life bonus___ theta___"
+            "est_base est_base out_bas0 out_bas1 out_bas2 out_bas3 out_bas4"
+            "est_mont est_mont out_mon0 out_mon1 out_mon2 out_mon3 out_mon4"
+            "est_annu est_annu out_ann0 out_ann1 out_ann2 out_ann3 out_ann4"
+            "est_MA1m est_MA1m out_mA10 out_mA11 out_mA12 out_mA13 out_mA14"
             ''')
        )
 time_agg_graph_update = widgets.interactive(plot_time_aggregation,
@@ -811,9 +915,9 @@ time_agg_graph_update = widgets.interactive(plot_time_aggregation,
                                    theta=theta_widget2,
                                    var_monthly_weights = widgets.fixed(monthly_weights))
 
-# %%
-# %matplotlib agg
-# %matplotlib agg
+# %% {"code_folding": [0]}
+# Plot Time Aggregation Models
+
 display(monthy_weights_widget)
 display(control_panel2)
 display(out_plt_time_agg)
@@ -822,16 +926,77 @@ on_weight_change(None)
 #plot_time_aggregation_update.update()
 
 
-# %%
-plot_time_aggregation(estimates[0],estimates[1],np.log(2)/estimates[2],estimates[3],0.0)
-
 # %% [markdown]
 # # Heterogeneity in Income Processes
 #
 
 # %% {"code_folding": [0]}
+# Define plotting function for parameters by quantiles
+
+out_plt_subgroup=widgets.Output()
+out_plt_subgroup.layout.height = '650px'
+def plot_by_subgroup(subgroup_stub, T, init_params, optimize_index=optimize_index, bounds=bounds):
+    subgroup_names = []
+    if (subgroup_stub=="Liquid Wealth (quintiles)"):
+        subgroup_stub='moments_by_liquid_wealth_quantile'
+        num_quantiles=5
+    elif (subgroup_stub=="Net Wealth (quintiles)"):
+        subgroup_stub='moments_by_net_wealth_quantile'
+        num_quantiles=5
+    elif (subgroup_stub=="Income (deciles)"):
+        subgroup_stub='moments_by_Income_quantile'
+        num_quantiles=10
+    elif (subgroup_stub=="Net Nominal Position (deciles)"):
+        subgroup_stub='moments_by_NNP_quantile'
+        num_quantiles=10
+    elif (subgroup_stub=="Interest Rate Exposure (deciles)"):
+        subgroup_stub='moments_by_URE_quantile'
+        num_quantiles=10
+    elif (subgroup_stub=="Consumption (deciles)"):
+        subgroup_stub='moments_by_MeanCons_quantile'
+        num_quantiles=10
+    for i in range(num_quantiles):
+        subgroup_names += ["X"+str(i+1)]
+    estimates, standard_errors = parameter_estimation_by_subgroup(moments_BPP_dir,subgroup_stub,subgroup_names, T, init_params, optimize_index=optimize_index, bounds=bounds)
+    fig = plt.figure(figsize=(14, 7),constrained_layout=True)
+    fig.figsize=(20,40)
+    gs = fig.add_gridspec(2, 2)
+    panel1 = fig.add_subplot(gs[0, 0])
+    panel2 = fig.add_subplot(gs[0, 1])
+    panel3 = fig.add_subplot(gs[1, 0])
+    panel4 = fig.add_subplot(gs[1, 1])
+    panel1.bar(np.array(range(num_quantiles))+1,estimates[:,0])
+    panel2.bar(np.array(range(num_quantiles))+1,estimates[:,1])
+    panel3.bar(np.array(range(num_quantiles))+1,np.log(2)/estimates[:,2])
+    panel4.bar(np.array(range(num_quantiles))+1,estimates[:,3])
+    panel1.set_title("Permanent Variance")
+    panel2.set_title("Transitory Variance")
+    panel3.set_title("Half-life of Somewhat Transitory Shock")
+    panel4.set_title("Share that is Completely Transitory")
+    panel1.set_xlabel("Quantile")
+    panel2.set_xlabel("Quantile")
+    panel3.set_xlabel("Quantile")
+    panel4.set_xlabel("Quantile")
+    with out_plt_subgroup:
+        clear_output()
+        display(fig)
+    
+subgroup_widget = widgets.Dropdown(
+    options=['Liquid Wealth (quintiles)',
+             'Net Wealth (quintiles)',
+             'Income (deciles)', 
+             'Net Nominal Position (deciles)',
+             'Interest Rate Exposure (deciles)',
+             'Consumption (deciles)'],
+    value='Income (deciles)',
+    description='Subgroup',
+    disabled=False,)
+
+
+# %% {"code_folding": []}
 # Plot parameter estimates by selected quantiles
 widgets.interact(plot_by_subgroup,subgroup_stub=subgroup_widget, T=widgets.fixed(T), init_params=widgets.fixed(init_params), optimize_index=widgets.fixed(optimize_index), bounds=widgets.fixed(bounds));
+display(out_plt_subgroup)
 
 
 # %% [markdown]
@@ -845,8 +1010,6 @@ widgets.interact(plot_by_subgroup,subgroup_stub=subgroup_widget, T=widgets.fixed
 # Allow variance (and other parameters?) to vary over time
 #
 # Allow for user-defined shape of transitory shock
-#
-# Allow for user-defined intensity of permanent and transitory shocks over the year
 #
 # Do consumption response!
 #
