@@ -74,6 +74,8 @@
 #
 # The theoretical moments derived from the above model are calculated in the appendix cell at the end of this notebook.
 #
+# Run the following cells to move on.
+#
 #
 
 # %% {"code_folding": [0]}
@@ -571,6 +573,28 @@ control_panel = widgets.GridBox(children=[empty,
             "esti_box empty___ perm_var tran_var haf_life bonus___ perm_dec"
             ''')
        )
+
+# %% [markdown]
+# ## A First Look at the Data and Model
+#
+# When you run the next cell, three panels with graphs will appear along with a control panel.
+#
+# The top two panels show the moments used in the GMM proceedure of [Blundell, Pistaferri and Preston (2008)](https://www.aeaweb.org/articles?id=10.1257/aer.98.5.1887), that is $Cov(\Delta y_{t},\Delta y_{t+n})$ for differing values of $n$. The top left panel shows these moments for $n = 0, 1, 2$, while the top right panel shows these moments for $n \geq 1$. The reason for the two panels is simply that the $n=0$ case, the variance of $\Delta y_t$, requires a different scale to the others.
+#
+# In each of the top panels, the blue crosses show the empirical moments. For each  value of $n$ there is more than one moment because $t$ varies between 2003 to 2015 (check this!) for the Danish data that is intially filled in. The blue line connects the mean of the these blue crosses. The orange line shows the moments implied by the baseline model, where the parameters for the model are chosen using the slider bars (or estimated by pressing the 'Estimate!' button.
+#
+# * Perm Var is the variance of the permanent component of income, $\sigma^2_P$ in the model above
+# * Tran Var is the total variance of the transitory component of income, $\sigma^2_{tran}$ in the model above
+# * Half Life is the half life of the somewhat persistent transitory component of income ($\log(2)/\Omega$ in the model above)
+# * Bonus is the fraction of transitory variance that is entirely transitory ($b$ in the model above)
+# * Perm Decay extends the model above to allow for exponential decay in the permanent (now only persistent) shock. For estimation it is fixed at zero as default, but if you uncheck the related 'Fix?' checkbox, the 'Estimate!' button will also estimate this parameter, with a lower bound of zero.
+#
+# The lower panel shows a different set of moments, those used in [Carroll and Samwick (1998)](https://econpapers.repec.org/article/tprrestat/v_3a80_3ay_3a1998_3ai_3a3_3ap_3a410-419.htm). These are somewhat more intuitive, and suffer less from the time aggregation problem, so we show them here too. The blue crosses, blue line and orange line are the respective definitions from the top two panels.
+#
+# The widget allows you to examine and estimate to a range of different data, by changing the entry in the 'Compare To' and 'Quantile' dropdowns. The default moments for all households in Denmark will remain shown for compari. Currently most of the data relates to Denmark (and is in levels rather than logs), but you can also look at the PSID log-income data used in [Blundell, Pistaferri and Preston (2008)](https://www.aeaweb.org/articles?id=10.1257/aer.98.5.1887) as well as Norwegian data. For the Danish data, you can cut it into quantiles along various dimensions.
+#
+# In this first example all the model parameters are assumed to be time-invariant. 
+#
 
 # %% {"code_folding": [0]}
 # Plot BPP and Carroll Samwick moments, with estimates and user-defined parameters
