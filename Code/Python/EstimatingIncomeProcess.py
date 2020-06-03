@@ -181,6 +181,22 @@ def compare_to_moments(compare, quantile):
         tran_var_widget.max = 0.06
         perm_var_widget.max = 0.06
         T_compare = 14
+    elif (compare=="Norway 1973-2014"):
+        Norway_moments_all = np.genfromtxt(Path(moments_BPP_dir,"moments_Norway_100K_c_vector.csv"), delimiter=',')
+        Norway_Omega_all =    np.genfromtxt(Path(moments_BPP_dir,"moments_Norway_100K_omega.csv"), delimiter=',')
+        T_compare = 14
+        vech42 = vech_indices(42)
+        quantile_widget.options=list(range(1973,2000))
+        start_year = quantile
+        select_years = np.array([[False]*42]*42)
+        select_years[start_year-1973:start_year-1973+T_compare,start_year-1973:start_year-1973+T_compare] = True
+        select_years_vec = select_years[vech42]
+        compare_moments_inc = Norway_moments_all[select_years_vec]
+        compare_Omega_inc = Norway_Omega_all[select_years_vec,:][:,select_years_vec]
+        T=25
+        #quantile_widget.options=['1']
+        tran_var_widget.max = 0.06
+        perm_var_widget.max = 0.06
     else:
         if (compare=="Liquid Wealth (quintiles)"):
             subgroup_stub='moments_by_liquid_wealth_quantile'
@@ -308,10 +324,10 @@ def plot_moments(perm_var,tran_var,half_life,bonus,perm_decay,compare="All House
         panel2.plot(np.array(range(T)),compare_moments_inc[0:T], marker='x',linewidth=0,label="Individual years",color='#e377c2')
         panel4.plot(CS_Ndiff[0:T],CS_moments_compare[0:T]/CS_moments_factor, marker='x',linewidth=0,label="Individual years",color='#e377c2')
         i = T_compare
-        for t in np.array(range(T-1))+1:
-            panel1.plot(compare_moments_inc[i:min(i+T-t,i+3)], marker='x',linewidth=0,color='#e377c2')
-            panel2.plot(np.array(range(T-t)),compare_moments_inc[i:i+T-t], marker='x',linewidth=0,color='#e377c2')
-            panel4.plot(CS_Ndiff[0:T-t],CS_moments_compare[i:i+T-t]/CS_moments_factor[0:T-t], marker='x',linewidth=0,color='#e377c2')
+        for t in np.array(range(T_compare-1))+1:
+            panel1.plot(compare_moments_inc[i:min(i+T_compare-t,i+3)], marker='x',linewidth=0,color='#e377c2')
+            panel2.plot(np.array(range(min(T_compare-t,T))),compare_moments_inc[i:min(i+T_compare-t,i+T)], marker='x',linewidth=0,color='#e377c2')
+            panel4.plot(CS_Ndiff[0:min(T_compare-t,T)],CS_moments_compare[i:min(i+T_compare-t,i+T)]/CS_moments_factor[0:min(T_compare-t,T)], marker='x',linewidth=0,color='#e377c2')
             i += T_compare-t
             # Standard errors
         panel1.plot(mean_compare_moments[0:3]+1.96*mean_compare_moments_se[0:3],linestyle="--",color="gray",linewidth=1.0)
@@ -410,6 +426,20 @@ def estimate_button_clicked(b):
     compare = compare_widget.value
     quantile = quantile_widget.value
     compare_moments_inc, compare_Omega_inc, T_compare  = compare_to_moments(compare, quantile)
+    
+#     if True:
+#         # Calculate mean empirical moments and replace
+#         mean_compare_moments = np.zeros(T_compare)
+#         compare_moments_inc_mean = np.zeros_like(compare_moments_inc)
+#         for t in range(T_compare):
+#             this_diag = np.diag(1.0/(T_compare-t)*np.ones(T_compare-t),-t)
+#             vech_indicesTcompare = vech_indices(T_compare)
+#             this_diag = this_diag[vech_indicesTcompare]
+#             mean_compare_moments[t] = np.dot(this_diag,compare_moments_inc)
+#             #now replace moments with their mean
+#             compare_moments_inc_mean += this_diag*(T_compare-t)*mean_compare_moments[t]
+#         compare_moments_inc = compare_moments_inc_mean
+    
     estimates, estimate_se = parameter_estimation(compare_moments_inc, compare_Omega_inc, T_compare, init_params_with_fix, bounds=bounds, optimize_index=optimize_index)  
     global dont_update
     dont_update=True
@@ -428,7 +458,8 @@ compare_widget = widgets.Dropdown(
              'Net Nominal Position (deciles)',
              'Interest Rate Exposure (deciles)',
              'Consumption (deciles)',
-             'PSID BPP (2008)'],
+             'PSID BPP (2008)',
+             'Norway 1973-2014'],
     value='All Households',
     description='Compare To',
     disabled=False,
