@@ -42,7 +42,39 @@
 #
 # # Estimating Income Processes
 #
-# The permanent/transitory decomposition has held up well, but some questions remain. Scandinavian data provides us an unparalled opportunitity to measure this in more detail
+# In this notebook we explore parsimonious ways to model the dynamics of idiosyncratic income changes. We make two core contributions to the current literature:
+# * We take time aggregation of income seriously. Almost all previous studies of income dynamics have modeled a discrete time annual process, when it is well understood that income shocks can occur at any point in the year. We address this issue, and show that the transitory components income are seriously mismeasured unless time aggregation is modelled explicitly. 
+# * We make use of a variety of data sources, including administrative data from Denmark and Norway. These data allow us to say much more about the nature of transitory income dynamics, including a division between a truely transitory shock and one with some persistence, as well as how the relative size of these shocks has evolved over time.
+#
+
+# %% [markdown]
+# ## A Baseline Model in Continuous Time
+# The literature on income processes has converged on a few canonical models. One of the most common is to model the log-income process as consisting of independent permanent and transitory components, where the permanent component is a random walk and the transitory component is an MA(p) process, where p is usually 0 or 1. The $p=0$ case, with $\xi_{it}$ and $\varepsilon_{it}$ being the permanent and transitory shocks respectively, can be written:
+#
+# $\Delta y_{it} = \xi_{it} + \Delta \varepsilon_{it}$
+#
+# The baseline model used in this notebook builds from this. We write the model in continuous time, in which permanent shocks again follow a random walk, but transitory shocks are composed of two types: entirely transitory, or 'bonus' type shocks, and somewhat persistant shocks that decay exponentially. Observed (residual) log income for year $T$ is modelled as:
+#
+# $y_{T}^\textit{obs} = \int_{T-1}^{T} P_{t}  dt + \int_{T-1}^T  dB_{t} + \frac{1}{1-e^{-\Omega}} \int_{T-1}^T \int_{-\infty}^t e^{-\Omega(t-s)} dQ_{s} dt$ 
+#
+# That is, observed (residual) log income is made up of three independent components:
+# * The integral over the observation year of the permanent component of income, $P_t$, that moves as a random walk with volatility $\sigma_{P,t}$.
+# * The integral over the observation year of entirely transitory, 'bonus', shocks $dB_t$. The volatility of $B_t$ is $\sigma_{B,t}$ - that is $Var(B_T- B_{T-1}) = \int_{T-1}^T \sigma^2_{B,t} dt $
+# * The integral over the observation year of somewhat persistant shocks, that decay exponentially at a rate $\Omega$. As can be seen in the equation above, even shocks that happen many years ago still have some influence on income in the observed year. This somewhat persistant shock is normalized such that the variance of income over the next year due to shocks that happen at time $t$ is equal to $\sigma^2_{Q,t}dt$.
+#
+# For ease of comparison to previous work, and for understanding the relative importance of 'bonus' shocks to the somewhat persistant transitory shock, we normalize so that the 'bonus' variance and somewhat transitory variance add up to total transitory variance, $\sigma^2_{\textit{tran},t}$
+#
+# $\sigma^2_{B,t} = b \sigma^2_{\textit{tran},t}$
+#
+# $\sigma^2_{Q,t} = (1-b) \sigma^2_{\textit{tran},t}$
+#
+# where $b$ is the fraction of transitory variance that is of the 'bonus', or entirely transitory, type.
+#
+# In the first estimations carried out below, we assume that the variance of each component of income is constant over time. We carry out GMM estimation on the moments $Cov(\Delta y_T, y_S)$ for all values of $T$ and $S$.
+#
+# The theoretical moments derived from the above model are calculated in the appendix cell at the end of this notebook.
+#
+#
 
 # %% {"code_folding": [0]}
 # Initial imports and notebook setup, click arrow to show
@@ -96,7 +128,7 @@ bounds     = [(0.000001,0.1),
               (0.0,0.1)]
 
 
-# %% {"code_folding": [0, 6]}
+# %% {"code_folding": [0]}
 # Estimate parameters and calculate mean of moments over years
 estimates, estimate_se = parameter_estimation(empirical_moments_inc, Omega_inc, T, init_params, bounds=bounds, optimize_index=optimize_index)  
 implied_cov_full = model_covariance(estimates, T, model="PermTranBonus_continuous")
@@ -128,7 +160,7 @@ for t in range(T):
     CS_moments_mean[t] = np.dot(this_diag,CS_moments)
 
 
-# %% {"code_folding": [0, 2]}
+# %% {"code_folding": [0]}
 # Define plotting function
 
 def compare_to_moments(compare, quantile):
@@ -302,7 +334,7 @@ def plot_moments(perm_var,tran_var,half_life,bonus,perm_decay,compare="All House
     plt.close(fig)
 
 
-# %% {"code_folding": [0, 4, 16, 28, 40, 52, 64, 85, 99, 105, 113, 119, 124, 130, 135, 141, 146, 152, 157, 163, 168, 174, 177, 180]}
+# %% {"code_folding": [0]}
 #set up widgets with default values for plot
 cont_update = False
 orientation = 'vertical'
@@ -521,7 +553,7 @@ graph_update.update()
 #
 # Work in progress...
 
-# %% {"code_folding": [0, 4]}
+# %% {"code_folding": [0]}
 # Define plot function to show how time aggregation affects parameters
 
 out_plt_time_agg=widgets.Output()
@@ -632,7 +664,7 @@ def plot_time_aggregation(perm_var,tran_var,half_life,bonus,theta,var_monthly_we
 
 
 
-# %% {"code_folding": [0, 1, 13, 25, 37, 49, 63, 74, 85, 90, 92, 94, 106, 111, 115, 119, 121, 154, 158, 160, 193, 199, 232, 236, 238, 271, 297]}
+# %% {"code_folding": [0]}
 # Setup widgets
 perm_var_widget2 = widgets.FloatSlider(
     value=estimates[0],
@@ -953,7 +985,7 @@ on_weight_change(None)
 # # Heterogeneity in Income Processes
 #
 
-# %% {"code_folding": [0, 4]}
+# %% {"code_folding": [0]}
 # Define plotting function for parameters by quantiles
 
 out_plt_subgroup=widgets.Output()
@@ -1022,6 +1054,92 @@ subgroup_widget = widgets.Dropdown(
 widgets.interact(plot_by_subgroup,subgroup_stub=subgroup_widget, T=widgets.fixed(T), init_params=widgets.fixed(init_params), optimize_index=widgets.fixed(optimize_index), bounds=widgets.fixed(bounds));
 display(out_plt_subgroup)
 
+
+# %% [markdown]
+# # Appendix
+#
+# ## Calculating Model Implied Moments
+#
+# The baseline, continuous time model for the log income process is composed of three parts, permanent, bonus, and exponential decaying shocks:
+#
+# $y_{T}^\textit{obs} = \int_{T-1}^{T} P_{t}  dt + \int_{T-1}^T  dB_{t} + \frac{1}{1-e^{-\Omega}} \int_{T-1}^T \int_{-\infty}^t e^{-\Omega(t-s)} dQ_{s} dt$ 
+#
+# or
+#
+# $y_{T}^\textit{obs} = \text{Perm}_T + \text{Bonus}_T + \text{ExpDecay}_T$
+#
+# where 
+#
+# $\text{Perm}_T = \int_{T-1}^{T} P_{t}  dt$
+#
+# $\text{Bonus}_T = \int_{T-1}^T  dB_{t} $
+#
+# $\text{ExpDecay}_T = \frac{1}{1-e^{-\Omega}} \int_{T-1}^T \int_{-\infty}^t e^{-\Omega(t-s)} dQ_{s} dt $
+#
+# Each part is independent, so we have that
+#
+# $Cov(\Delta y_{T}^\textit{obs}, \Delta y_{S}^\textit{obs} ) = Cov(\Delta \text{Perm}_T, \Delta \text{Perm}_S ) +Cov(\Delta \text{Bonus}_T, \Delta \text{Bonus}_S ) + Cov(\Delta \text{ExpDecay}_T, \Delta \text{ExpDecay}_S ) $
+#
+# So it remains to calculate each of these covariances, for all $S$ and $T$. Starting with $Cov(\Delta \text{Perm}_T, \Delta \text{Perm}_S )$ (and assuming the variance of shocks is constant throughout each year):
+#
+# $Var(\Delta \text{Perm}_T) = \frac{1}{3}\sigma^2_{P,T-1} +\frac{1}{3}\sigma^2_{P,T}$
+#
+# $Cov(\Delta \text{Perm}_T, \Delta \text{Perm}_{T-1} ) = \frac{1}{6}\sigma^2_{P,T-1} $
+#
+# $Cov(\Delta \text{Perm}_T, \Delta \text{Perm}_{T-N} ) = 0 $ for all $N \geq 2$
+#
+# Next for the bonus component:
+#
+# $Var(\Delta \text{Bonus}_T) = \sigma^2_{B,T-1} +\sigma^2_{B,T}$
+#
+# $Cov(\Delta \text{Bonus}_T, \Delta \text{Bonus}_{T-1} ) = -\sigma^2_{B,T-1} $
+#
+# $Cov(\Delta \text{Bonus}_T, \Delta \text{Bonus}_{T-N} ) = 0 $ for all $N \geq 2$
+#
+# The exponentially decaying shock is the most complex. Setting $ \tilde{\Omega}= \frac{1}{1-e^{-\Omega}}$
+#
+# \begin{align}
+# \text{ExpDecay}_T &= \tilde{\Omega} \int_{T-1}^T \int_{-\infty}^t e^{-\Omega(t-s)} dQ_{s} dt \\
+# &= \tilde{\Omega} \int_{T-1}^T (1-e^{-\Omega(T-s)}) dQ_s +  \sum_{M=-\infty}^{T-1} e^{-\Omega(T-1-M)} \int_{M-1}^M e^{-\Omega(M-s)}
+# dQ_s \end{align}
+#
+# So
+#
+# \begin{align}
+# \Delta \text{ExpDecay}_T &=  \tilde{\Omega} \int_{T-1}^T (1-e^{-\Omega(T-s)}) dQ_s \\ 
+# & \qquad +  \tilde{\Omega} \int_{T-2}^{T-1} \Big( (2-e^{-\Omega})e^{-\Omega (T-1-s)} -1 \Big)dQ_s \\
+# & \qquad - \sum_{M=-\infty}^{T-2} \frac{e^{-\Omega(T-2-M)}}{\tilde{\Omega}} \int_{M-1}^M e^{-\Omega(M-s)}
+# dQ_s 
+# \end{align}
+#
+# \begin{align}
+# Var(\Delta \text{ExpDecay}_T) &=  \tilde{\Omega}^2 \sigma^2_{Q,T} \int_{T-1}^T (1-e^{-\Omega(T-s)})^2 ds \\ 
+# & \qquad +  \tilde{\Omega}^2 \sigma^2_{Q,T-1} \int_{T-2}^{T-1} \Big( (2-e^{-\Omega})e^{-\Omega (T-1-s)} -1 \Big)^2ds \\
+# & \qquad - \sum_{M=-\infty}^{T-2} \left(\frac{e^{-\Omega(T-2-M)}}{\tilde{\Omega}}\right)^2 \sigma^2_{Q,M} \int_{M-1}^M e^{-2\Omega(M-s)}
+# ds \\
+# &=   \sigma^2_{Q,T} \left( \tilde{\Omega}^2 -2 \frac{\tilde{\Omega}}{\Omega} + \tilde{\Omega}^2 \frac{1-e^{-2\Omega}}{2\Omega} \right) \\ 
+# & \qquad +  \sigma^2_{Q,T-1} \left( \tilde{\Omega}^2 - 2\frac{\tilde{\Omega}}{\Omega}(2-e^{-\Omega}) + \tilde{\Omega}^2 \frac{(2-e^{-\Omega})^2 (1-e^{-2\Omega})}{2\Omega}\right) \\
+# & \qquad - \sum_{M=-\infty}^{T-2} \sigma^2_{Q,M} \left(\frac{e^{-\Omega(T-2-M)}}{\tilde{\Omega}}\right)^2  \left(\frac{1-e^{-2\Omega}}{2\Omega} \right) 
+# \end{align}
+#
+# \begin{align}
+# Cov(\Delta \text{ExpDecay}_T , \Delta \text{ExpDecay}_{T-1}) &=   \tilde{\Omega}^2 \sigma^2_{Q,T-1} \int_{T-2}^{T-1} \Big( (2-e^{-\Omega})e^{-\Omega (T-1-s)} -1 \Big)(1-e^{-\Omega(T-1-s)})ds \\
+# & \qquad - \sigma^2_{Q,T-2} \int_{T-3}^{T-2} e^{-\Omega(T-2-s)}\Big( (2-e^{-\Omega})e^{-\Omega (T-2-s)} -1 \Big)ds \\
+# & \qquad + e^{-\Omega}\sum_{M=-\infty}^{T-3} \frac{e^{-2\Omega(T-3-M)}}{\tilde{\Omega}^2} \sigma^2_{Q,M}\int_{M-1}^M e^{-2\Omega(M-s)} ds \\
+# &=  \sigma^2_{Q,T-1}\left( \frac{\tilde{\Omega}}{\Omega }(3-e^{-\Omega})  - \tilde{\Omega}^2 \frac{(2-e^{-\Omega})(1-e^{-2\Omega})}{2\Omega} -\tilde{\Omega}^2 \right)\\
+#  & \qquad - \sigma^2_{Q,T-2}\left( \frac{(2-e^{-\Omega})(1-e^{-2\Omega})}{2\Omega} - \frac{1}{\Omega \tilde{\Omega}} \right) \\
+# & \qquad + e^{-\Omega}\sum_{M=-\infty}^{T-3} \frac{e^{-2\Omega(T-3-M)}}{2 \Omega\tilde{\Omega}^2} \sigma^2_{Q,M}(1-e^{-2\Omega})
+# \end{align}
+# And for $N \geq 2$:
+# \begin{align}
+# Cov(\Delta \text{ExpDecay}_T , \Delta \text{ExpDecay}_{T-N}) &=  -\sigma^2_{Q,T-N} e^{-\Omega(N-2)} \int_{T-N-1}^{T-N} (1-e^{-\Omega(T-N-s)})e^{-\Omega(T-N-s)} ds \\ 
+# & \qquad   -\sigma^2_{Q,T-N-1} e^{-\Omega(N-1)} \int_{T-N-2}^{T-N-1} \Big( (2-e^{-\Omega})e^{-\Omega (T-N-1-s)} -1 \Big) e^{-\Omega(T-N-1-s)}ds \\
+# & \qquad + e^{-\Omega N}\sum_{M=-\infty}^{T-N-2} \frac{e^{-2\Omega(T-N-2-M)}}{\tilde{\Omega}^2} \sigma^2_{Q,M} \int_{M-1}^M e^{-2\Omega(M-s)}
+# ds \\
+# &=  -\sigma^2_{Q,T-N} e^{-\Omega(N-2)} \left(\frac{1}{\Omega \tilde{\Omega}} - \frac{1-e^{-2\Omega}}{2\Omega} \right) \\ 
+# & \qquad   -\sigma^2_{Q,T-N-1} e^{-\Omega(N-1)} \left( \frac{(2-e^{-\Omega})(1-e^{-2\Omega})}{2\Omega} - \frac{1}{\Omega \tilde{\Omega}}\right) \\
+# & \qquad + e^{-\Omega N}\sum_{M=-\infty}^{T-N-2} \frac{e^{-2\Omega(T-N-2-M)}}{2\Omega\tilde{\Omega}^2} \sigma^2_{Q,M} (1-e^{-2\Omega})
+# \end{align}
 
 # %% [markdown]
 # To Do:
